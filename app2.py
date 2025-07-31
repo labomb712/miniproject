@@ -41,7 +41,7 @@ def setup_korean_font():
 
 setup_korean_font()
 
-st.set_page_config(page_title="영화 예측 시스템", layout="wide")
+st.set_page_config(page_title="영화 예측 시스템", layout="centered")
 st.title("🎬 영화 예측 시스템")
 st.markdown("---")
 
@@ -94,6 +94,9 @@ def get_movie_poster_url(movie_title):
     return "https://placehold.co/300x450/cccccc/000000?text=No+Image" # 이미지가 없을 경우
 
 # 데이터 로드
+# 파일 경로를 'data/' 폴더 내로 변경했습니다.
+# 이전에 '20-25년_영화데이터_한글컬럼.csv'를 사용했지만,
+# 새로운 코드에서는 'data/청불제거_최종_DB컬럼.csv'를 사용하도록 변경되어 있습니다.
 df = load_data("data/청불제거_최종_DB컬럼.csv")
 title_to_index = pd.Series(df.index, index=df['영화명']).drop_duplicates()
 
@@ -107,26 +110,36 @@ def get_tfidf_similarity_matrix(dataframe):
 
 @st.cache_resource(show_spinner="KoBERT 임베딩 및 유사도 모델을 계산하는 중입니다...")
 def get_kobert_similarity_matrix(dataframe):
+    # KoBERT 모델 로드 및 임베딩 생성 (시간이 오래 걸릴 수 있습니다)
     model = SentenceTransformer('snunlp/KR-SBERT-V40K-klueNLI-augSTS')
     embeddings = model.encode(dataframe['text_for_kobert'].tolist(), convert_to_tensor=False, show_progress_bar=True)
     return cosine_similarity(embeddings, embeddings)
 
+# 유사도 행렬 계산
 cosine_sim_tfidf = get_tfidf_similarity_matrix(df)
 cosine_sim_kobert = get_kobert_similarity_matrix(df)
 
 def get_recommendations(title, similarity_matrix, top_n=5):
+    """
+    선택된 영화와 유사한 영화를 추천합니다.
+    """
     idx = title_to_index.get(title)
-    if idx is None: return None
+    if idx is None: 
+        st.warning(f"'{title}'에 대한 인덱스를 찾을 수 없습니다. 추천할 수 없습니다.")
+        return None
     
     # idx가 유효한 범위 내에 있는지 확인
     if idx >= len(similarity_matrix):
         st.error(f"'{title}'에 대한 인덱스를 찾았으나({idx}), 추천 모델의 범위를 벗어납니다. 데이터를 다시 확인해주세요.")
         return None
 
+    # 유사도 점수 추출 및 정렬 (자기 자신 제외)
     sim_scores = sorted(list(enumerate(similarity_matrix[idx])), key=lambda x: x[1], reverse=True)[1:top_n+1]
     movie_indices = [i[0] for i in sim_scores]
     
+    # 추천 영화 정보 가져오기
     recommended_df = df.iloc[movie_indices][['영화명', '감독', '장르', '개봉일']].copy()
+    # 각 추천 영화에 대한 포스터 URL 가져오기
     recommended_df['포스터'] = recommended_df['영화명'].apply(get_movie_poster_url)
     return recommended_df[['포스터', '영화명', '감독', '장르', '개봉일']]
 
@@ -149,7 +162,8 @@ if selected_movie != '영화를 선택하세요...':
         st.subheader(f"'{selected_movie}' 정보")
         col1, col2 = st.columns([1, 2])
         with col1:
-            st.image(get_movie_poster_url(selected_movie), use_column_width=True)
+            # use_column_width 대신 use_container_width 사용
+            st.image(get_movie_poster_url(selected_movie), use_container_width=True)
         with col2:
             st.info(f"**감독:** {movie_info['감독']}")
             st.info(f"**장르:** {movie_info['장르']}")
@@ -183,7 +197,7 @@ if selected_movie != '영화를 선택하세요...':
 
 st.markdown("\n\n---\n\n")
 
-# --- 5. Streamlit UI - 관객수 예측 ---
+# --- 5. Streamlit UI - 누적 관객수 예측 ---
 
 st.header("🎯 누적 관객수 예측 모델")
 with st.spinner("관객수 예측 모델을 학습하는 중입니다..."):
@@ -209,7 +223,7 @@ col2.metric("RMSE", f"{rmse:,.0f}")
 col3.metric("R² Score", f"{r2:.4f}")
 
 st.subheader("📈 실제 vs 예측 관객수 시각화")
-fig, ax = plt.subplots(figsize=(10, 6))
+fig, ax = plt.subplots(figsize=(10, 6)) # 그래프 크기는 유지
 sns.scatterplot(x=y_test, y=y_pred, alpha=0.6, ax=ax, color='royalblue')
 ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2, label='이상적인 예측')
 ax.set_xlabel("실제 누적 관객수")
