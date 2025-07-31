@@ -56,7 +56,14 @@ def load_data(file_path):
     for col in ['누적관객수', '누적매출액']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
     df['개봉일'] = pd.to_datetime(df['개봉일'], errors='coerce', format='%Y-%m-%d')
+    
+    # 결측치 제거
     df.dropna(subset=['누적관객수', '누적매출액', '개봉일', '감독', '장르', '제작국가'], inplace=True)
+    
+    # [수정] 결측치 제거 후 인덱스를 리셋하여 0부터 순차적으로 부여합니다.
+    df.reset_index(drop=True, inplace=True)
+    
+    # 파생 변수 생성
     df['개봉_월'] = df['개봉일'].dt.month
     df['개봉_년'] = df['개봉일'].dt.year
     df['text_for_tfidf'] = df[['감독', '제작국가', '장르']].astype(str).agg(' '.join, axis=1)
@@ -87,7 +94,7 @@ def get_movie_poster_url(movie_title):
     return "https://placehold.co/300x450/cccccc/000000?text=No+Image" # 이미지가 없을 경우
 
 # 데이터 로드
-df = load_data("data/20-25년_영화데이터_한글컬럼.csv")
+df = load_data("data/청불제거_최종_DB컬럼.csv")
 title_to_index = pd.Series(df.index, index=df['영화명']).drop_duplicates()
 
 # --- 3. 추천 모델 (TF-IDF & KoBERT) ---
@@ -110,10 +117,15 @@ cosine_sim_kobert = get_kobert_similarity_matrix(df)
 def get_recommendations(title, similarity_matrix, top_n=5):
     idx = title_to_index.get(title)
     if idx is None: return None
+    
+    # idx가 유효한 범위 내에 있는지 확인
+    if idx >= len(similarity_matrix):
+        st.error(f"'{title}'에 대한 인덱스를 찾았으나({idx}), 추천 모델의 범위를 벗어납니다. 데이터를 다시 확인해주세요.")
+        return None
+
     sim_scores = sorted(list(enumerate(similarity_matrix[idx])), key=lambda x: x[1], reverse=True)[1:top_n+1]
     movie_indices = [i[0] for i in sim_scores]
     
-    # 추천된 영화 정보와 함께 포스터 URL도 가져옵니다.
     recommended_df = df.iloc[movie_indices][['영화명', '감독', '장르', '개봉일']].copy()
     recommended_df['포스터'] = recommended_df['영화명'].apply(get_movie_poster_url)
     return recommended_df[['포스터', '영화명', '감독', '장르', '개봉일']]
@@ -128,40 +140,46 @@ selected_movie = st.selectbox("추천의 기준이 될 영화를 선택해주세
 
 if selected_movie != '영화를 선택하세요...':
     st.markdown("---")
-    movie_info = df[df['영화명'] == selected_movie].iloc[0]
+    movie_info_rows = df[df['영화명'] == selected_movie]
     
-    # 선택된 영화 정보 (포스터와 함께)
-    st.subheader(f"'{selected_movie}' 정보")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.image(get_movie_poster_url(selected_movie), use_column_width=True)
-    with col2:
-        st.info(f"**감독:** {movie_info['감독']}")
-        st.info(f"**장르:** {movie_info['장르']}")
-        st.info(f"**제작국가:** {movie_info['제작국가']}")
-        st.info(f"**개봉일:** {movie_info['개봉일'].date()}")
-        st.info(f"**누적 관객수:** {int(movie_info['누적관객수']):,} 명")
-        st.info(f"**누적 매출액:** ₩ {int(movie_info['누적매출액']):,}")
+    if not movie_info_rows.empty:
+        movie_info = movie_info_rows.iloc[0]
+        
+        # 선택된 영화 정보 (포스터와 함께)
+        st.subheader(f"'{selected_movie}' 정보")
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.image(get_movie_poster_url(selected_movie), use_column_width=True)
+        with col2:
+            st.info(f"**감독:** {movie_info['감독']}")
+            st.info(f"**장르:** {movie_info['장르']}")
+            st.info(f"**제작국가:** {movie_info['제작국가']}")
+            st.info(f"**개봉일:** {movie_info['개봉일'].date()}")
+            st.info(f"**누적 관객수:** {int(movie_info['누적관객수']):,} 명")
+            st.info(f"**누적 매출액:** ₩ {int(movie_info['누적매출액']):,}")
 
-    st.markdown("---")
-    st.subheader(f"'{selected_movie}'와 비슷한 영화 추천 목록")
-    
-    # 추천 결과 (포스터와 함께)
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("#### 🤖 TF-IDF 기반 추천 (키워드 중심)")
-        rec_tfidf = get_recommendations(selected_movie, cosine_sim_tfidf)
-        if rec_tfidf is not None:
-            st.data_editor(rec_tfidf, column_config={"포스터": st.column_config.ImageColumn("포스터")}, hide_index=True, use_container_width=True)
-        else:
-            st.warning("추천 결과를 찾을 수 없습니다.")
-    with col2:
-        st.markdown("#### 🧠 KoBERT 기반 추천 (의미 중심)")
-        rec_kobert = get_recommendations(selected_movie, cosine_sim_kobert)
-        if rec_kobert is not None:
-            st.data_editor(rec_kobert, column_config={"포스터": st.column_config.ImageColumn("포스터")}, hide_index=True, use_container_width=True)
-        else:
-            st.warning("추천 결과를 찾을 수 없습니다.")
+        st.markdown("---")
+        st.subheader(f"'{selected_movie}'와 비슷한 영화 추천 목록")
+        
+        # 추천 결과 (포스터와 함께)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("#### 🤖 TF-IDF 기반 추천 (키워드 중심)")
+            rec_tfidf = get_recommendations(selected_movie, cosine_sim_tfidf)
+            if rec_tfidf is not None and not rec_tfidf.empty:
+                st.data_editor(rec_tfidf, column_config={"포스터": st.column_config.ImageColumn("포스터")}, hide_index=True, use_container_width=True)
+            else:
+                st.warning("TF-IDF 기반 추천 결과를 찾을 수 없습니다.")
+        with col2:
+            st.markdown("#### 🧠 KoBERT 기반 추천 (의미 중심)")
+            rec_kobert = get_recommendations(selected_movie, cosine_sim_kobert)
+            if rec_kobert is not None and not rec_kobert.empty:
+                st.data_editor(rec_kobert, column_config={"포스터": st.column_config.ImageColumn("포스터")}, hide_index=True, use_container_width=True)
+            else:
+                st.warning("KoBERT 기반 추천 결과를 찾을 수 없습니다.")
+    else:
+        st.error(f"선택한 영화 '{selected_movie}'의 정보를 데이터에서 찾을 수 없습니다.")
+
 
 st.markdown("\n\n---\n\n")
 
