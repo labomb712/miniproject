@@ -35,7 +35,7 @@ st.title("영화 예측 시스템")
 @st.cache_data # Streamlit 캐싱 데코레이터: 데이터를 한 번 로드하면 다시 로드하지 않음
 def load_data():
     # CSV 파일 로드 (파일 이름이 한글이므로 정확히 일치해야 함)
-    df = pd.read_csv("20-25년_영화데이터_한글컬럼.csv")
+    df = pd.read_csv("data/20-25년_영화데이터_한글컬럼.csv")
 
     # '누적관객수' 컬럼을 숫자형으로 변환 (변환 불가 시 NaN으로 처리)
     df['누적관객수'] = pd.to_numeric(df['누적관객수'], errors='coerce')
@@ -59,14 +59,19 @@ st.subheader("영화 검색")
 search_input = st.text_input("검색할 영화 제목을 입력하세요")
 
 if search_input:
-    # '영화명' 컬럼에서 검색어 포함 여부 확인 (대소문자 구분 없이, NaN 값은 무시)
     result_df = df[df['영화명'].str.contains(search_input, case=False, na=False)]
     if not result_df.empty:
-        # 검색 결과가 있을 경우 결과 개수와 데이터프레임 표시
         st.success(f"{len(result_df)}개의 검색 결과가 있습니다:")
-        st.dataframe(result_df[['영화명', '누적관객수', '누적매출액', '개봉일']])
+        for idx, row in result_df.iterrows():
+            st.markdown("---")
+            st.markdown(f"**🎬 영화명:** {row['영화명']}")
+            st.markdown(f"**🎞️ 장르:** {row['장르']}")
+            st.markdown(f"**🎬 감독:** {row['감독']}")
+            st.markdown(f"**🌍 제작국가:** {row['제작국가']}")
+            st.markdown(f"**📅 개봉일:** {row['개봉일'].date() if pd.notnull(row['개봉일']) else '정보 없음'}")
+            st.markdown(f"**👥 누적 관객수:** {int(row['누적관객수']):,} 명")
+            st.markdown(f"**💰 누적 매출액:** ₩{int(row['누적매출액']):,}")
     else:
-        # 검색 결과가 없을 경우 경고 메시지 표시
         st.warning("검색 결과가 없습니다.")
 
 # 피처(독립 변수) 및 타겟(종속 변수) 설정
