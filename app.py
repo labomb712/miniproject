@@ -30,7 +30,7 @@ else:
 plt.rcParams['axes.unicode_minus'] = False
 
 # Streamlit 앱 설정
-st.set_page_config(page_title="영화 예측 시스템", layout="wide")
+st.set_page_config(page_title="영화 예측 시스템", layout="centered")
 st.title("영화 예측 시스템")
 
 # 데이터 불러오기 함수
@@ -172,7 +172,8 @@ st.markdown(f"- **R² Score (결정 계수):** {r2:.4f}")
 st.subheader("실제 vs 예측 관객수 시각화")
 
 # Matplotlib figure와 axes 생성
-fig, ax = plt.subplots(figsize=(10, 6))
+# figsize를 (6, 4)로 줄여 그래프 크기를 작게 만듭니다.
+fig, ax = plt.subplots(figsize=(8, 6)) 
 # 실제 관객수와 예측 관객수를 산점도로 표시
 sns.scatterplot(x=y_test, y=y_pred, alpha=0.6, ax=ax)
 # 완벽한 예측을 나타내는 대각선 (y=x) 추가
