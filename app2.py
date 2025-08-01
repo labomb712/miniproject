@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import platform
 from matplotlib import font_manager, rc
-import requests # TMDB API 호출을 위해 추가
+import requests
+import os
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -16,8 +17,6 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# sentence_transformers 라이브러리가 설치되어 있어야 합니다.
-# pip install -U sentence-transformers
 from sentence_transformers import SentenceTransformer
 
 # --- 1. 기본 설정 및 폰트 ---
@@ -33,9 +32,10 @@ def setup_korean_font():
         rc('font', family='AppleGothic')
     else: # Linux
         font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
-        if font_manager.findfont(font_path):
+        if os.path.exists(font_path):
             rc('font', family='NanumGothic')
         else:
+            st.warning("나눔고딕 폰트가 시스템에 없습니다. 다른 폰트로 대체됩니다. 폰트 설치: sudo apt-get install fonts-nanum*")
             rc('font', family='DejaVu Sans')
     plt.rcParams['axes.unicode_minus'] = False
 
@@ -52,18 +52,18 @@ def load_data(file_path):
     """
     CSV 파일에서 영화 데이터를 로드하고 기본 전처리를 수행합니다.
     """
+    if not os.path.exists(file_path):
+        st.error(f"Error: 데이터 파일 '{file_path}'을(를) 찾을 수 없습니다. 'data' 폴더에 파일을 넣어주세요.")
+        st.stop()
+
     df = pd.read_csv(file_path)
     for col in ['누적관객수', '누적매출액']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
     df['개봉일'] = pd.to_datetime(df['개봉일'], errors='coerce', format='%Y-%m-%d')
     
-    # 결측치 제거
     df.dropna(subset=['누적관객수', '누적매출액', '개봉일', '감독', '장르', '제작국가'], inplace=True)
-    
-    # [수정] 결측치 제거 후 인덱스를 리셋하여 0부터 순차적으로 부여합니다.
     df.reset_index(drop=True, inplace=True)
     
-    # 파생 변수 생성
     df['개봉_월'] = df['개봉일'].dt.month
     df['개봉_년'] = df['개봉일'].dt.year
     df['text_for_tfidf'] = df[['감독', '제작국가', '장르']].astype(str).agg(' '.join, axis=1)
@@ -73,31 +73,28 @@ def load_data(file_path):
     )
     return df
 
-@st.cache_data(show_spinner=False) # API 호출 결과를 캐싱합니다.
+@st.cache_data(show_spinner=False)
 def get_movie_poster_url(movie_title):
     """
     TMDB API를 사용하여 영화 포스터 URL을 가져옵니다.
     """
-    API_KEY = "62fd419c4be9316756c61d72694907d3" # 제공된 API 키
+    API_KEY = "62fd419c4be9316756c61d72694907d3"
     search_url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_title}&language=ko-KR"
     try:
         response = requests.get(search_url)
-        response.raise_for_status() # 오류 발생 시 예외 처리
+        response.raise_for_status()
         data = response.json()
         if data['results']:
             poster_path = data['results'][0].get('poster_path')
             if poster_path:
                 return f"https://image.tmdb.org/t/p/w500{poster_path}"
     except requests.exceptions.RequestException as e:
-        # st.error(f"API 호출 중 오류 발생: {e}") # 디버깅 시 사용
         pass
-    return "https://placehold.co/300x450/cccccc/000000?text=No+Image" # 이미지가 없을 경우
+    return "https://placehold.co/300x450/cccccc/000000?text=No+Image"
 
 # 데이터 로드
-# 파일 경로를 'data/' 폴더 내로 변경했습니다.
-# 이전에 '20-25년_영화데이터_한글컬럼.csv'를 사용했지만,
-# 새로운 코드에서는 'data/청불제거_최종_DB컬럼.csv'를 사용하도록 변경되어 있습니다.
-df = load_data("data/청불제거_최종_DB컬럼.csv")
+DATA_FILE_PATH = "data/청불제거_최종_DB컬럼.csv"
+df = load_data(DATA_FILE_PATH)
 title_to_index = pd.Series(df.index, index=df['영화명']).drop_duplicates()
 
 # --- 3. 추천 모델 (TF-IDF & KoBERT) ---
@@ -110,7 +107,6 @@ def get_tfidf_similarity_matrix(dataframe):
 
 @st.cache_resource(show_spinner="KoBERT 임베딩 및 유사도 모델을 계산하는 중입니다...")
 def get_kobert_similarity_matrix(dataframe):
-    # KoBERT 모델 로드 및 임베딩 생성 (시간이 오래 걸릴 수 있습니다)
     model = SentenceTransformer('snunlp/KR-SBERT-V40K-klueNLI-augSTS')
     embeddings = model.encode(dataframe['text_for_kobert'].tolist(), convert_to_tensor=False, show_progress_bar=True)
     return cosine_similarity(embeddings, embeddings)
@@ -128,67 +124,72 @@ def get_recommendations(title, similarity_matrix, top_n=5):
         st.warning(f"'{title}'에 대한 인덱스를 찾을 수 없습니다. 추천할 수 없습니다.")
         return None
     
-    # idx가 유효한 범위 내에 있는지 확인
     if idx >= len(similarity_matrix):
         st.error(f"'{title}'에 대한 인덱스를 찾았으나({idx}), 추천 모델의 범위를 벗어납니다. 데이터를 다시 확인해주세요.")
         return None
 
-    # 유사도 점수 추출 및 정렬 (자기 자신 제외)
     sim_scores = sorted(list(enumerate(similarity_matrix[idx])), key=lambda x: x[1], reverse=True)[1:top_n+1]
     movie_indices = [i[0] for i in sim_scores]
     
-    # 추천 영화 정보 가져오기
     recommended_df = df.iloc[movie_indices][['영화명', '감독', '장르', '개봉일']].copy()
-    # 각 추천 영화에 대한 포스터 URL 가져오기
     recommended_df['포스터'] = recommended_df['영화명'].apply(get_movie_poster_url)
     return recommended_df[['포스터', '영화명', '감독', '장르', '개봉일']]
 
 # --- 4. Streamlit UI - 영화 추천 ---
 
 st.header("✨ 콘텐츠 기반 영화 추천")
-st.write("영화를 선택하면 해당 영화의 포스터와 정보, 그리고 두 가지 방식으로 추천된 영화 목록을 보여줍니다.")
+st.markdown("<p style='font-size:18px;'><strong>영화를 선택하면 해당 영화의 포스터와 정보, 그리고 두 가지 방식으로 추천된 영화 목록을 보여줍니다.</strong></p>", unsafe_allow_html=True)
 
 movie_list = ['영화를 선택하세요...'] + sorted(df['영화명'].unique().tolist())
-selected_movie = st.selectbox("추천의 기준이 될 영화를 선택해주세요:", movie_list)
+st.markdown("<strong>추천의 기준이 될 영화를 선택해주세요:</strong>", unsafe_allow_html=True)
+selected_movie = st.selectbox(" ", movie_list)
 
 if selected_movie != '영화를 선택하세요...':
-    st.markdown("---")
     movie_info_rows = df[df['영화명'] == selected_movie]
     
     if not movie_info_rows.empty:
         movie_info = movie_info_rows.iloc[0]
         
         # 선택된 영화 정보 (포스터와 함께)
-        st.subheader(f"'{selected_movie}' 정보")
-        col1, col2 = st.columns([1, 2])
+        st.subheader(f"({selected_movie})정보")
+        
+        # 포스터와 정보 영역의 시각적 균형을 위한 고정된 컬럼 비율 설정
+        # 이미지 크기가 커졌으므로, 정보 영역의 비율도 그에 맞춰 조절이 필요할 수 있습니다.
+        # 여기서는 이미지 너비를 키웠으므로, col1과 col2의 비율은 다시 1:1에 가깝게 조정합니다.
+        # 필요에 따라 [1, 1], [0.8, 1.2] 등 다시 시도해보세요.
+        col1, col2 = st.columns([1, 2]) # 이미지 너비가 커졌으므로 컬럼 비율을 다시 조정
+        
         with col1:
-            # use_column_width 대신 use_container_width 사용
-            st.image(get_movie_poster_url(selected_movie), use_container_width=True)
+            # 이미지 너비를 400 픽셀로 설정 (원하는 픽셀 값으로 변경 가능)
+            st.image(get_movie_poster_url(selected_movie), width=300) # 이미지 크기 키움
         with col2:
-            st.info(f"**감독:** {movie_info['감독']}")
-            st.info(f"**장르:** {movie_info['장르']}")
-            st.info(f"**제작국가:** {movie_info['제작국가']}")
-            st.info(f"**개봉일:** {movie_info['개봉일'].date()}")
-            st.info(f"**누적 관객수:** {int(movie_info['누적관객수']):,} 명")
-            st.info(f"**누적 매출액:** ₩ {int(movie_info['누적매출액']):,}")
+            # st.markdown을 사용하여 파란 배경을 제거하고 글자색을 기본(검은색)으로 설정
+            # HTML <p> 태그와 style 속성을 사용하여 글씨 크기 키움
+            st.markdown(f"<p style='font-size:31px;'><strong>감독:</strong> {movie_info['감독']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:24px;'><strong>장르:</strong> {movie_info['장르']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:24px;'><strong>제작국가:</strong> {movie_info['제작국가']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:24px;'><strong>개봉일:</strong> {movie_info['개봉일'].date()}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:24px;'><strong>누적 관객수:</strong> {int(movie_info['누적관객수']):,} 명</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:24px;'><strong>누적 매출액:</strong> ₩ {int(movie_info['누적매출액']):,}</p>", unsafe_allow_html=True)
 
         st.markdown("---")
-        st.subheader(f"'{selected_movie}'와 비슷한 영화 추천 목록")
+        st.subheader(f"({selected_movie})와 비슷한 영화 추천 목록")
         
-        # 추천 결과 (포스터와 함께)
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("#### 🤖 TF-IDF 기반 추천 (키워드 중심)")
+        rec_col1, rec_col2 = st.columns(2)
+        with rec_col1:
+            st.markdown("<p style='font-size:25px;'><strong>🤖 TF-IDF기반 추천 (키워드 중심)</strong></p>", unsafe_allow_html=True)
             rec_tfidf = get_recommendations(selected_movie, cosine_sim_tfidf)
             if rec_tfidf is not None and not rec_tfidf.empty:
-                st.data_editor(rec_tfidf, column_config={"포스터": st.column_config.ImageColumn("포스터")}, hide_index=True, use_container_width=True)
+                # 추천 테이블 내 포스터 크기도 작게 유지 (선택사항)
+                st.data_editor(rec_tfidf, column_config={"포스터": st.column_config.ImageColumn("포스터", width="small")}, hide_index=True, use_container_width=True)
             else:
                 st.warning("TF-IDF 기반 추천 결과를 찾을 수 없습니다.")
-        with col2:
-            st.markdown("#### 🧠 KoBERT 기반 추천 (의미 중심)")
+        with rec_col2:
+            st.markdown("<p style='font-size:25px;'><strong>🧠 KoBERT기반 추천 (의미 중심)</strong></p>", unsafe_allow_html=True)
             rec_kobert = get_recommendations(selected_movie, cosine_sim_kobert)
             if rec_kobert is not None and not rec_kobert.empty:
-                st.data_editor(rec_kobert, column_config={"포스터": st.column_config.ImageColumn("포스터")}, hide_index=True, use_container_width=True)
+                # 추천 테이블 내 포스터 크기도 작게 유지 (선택사항)
+                st.data_editor(rec_kobert, column_config={"포스터": st.column_config.ImageColumn("포스터", width="small")}, hide_index=True, use_container_width=True)
             else:
                 st.warning("KoBERT 기반 추천 결과를 찾을 수 없습니다.")
     else:
@@ -201,37 +202,55 @@ st.markdown("\n\n---\n\n")
 
 st.header("🎯 누적 관객수 예측 모델")
 with st.spinner("관객수 예측 모델을 학습하는 중입니다..."):
-    X = df[['누적매출액', '개봉_월', '장르', '제작국가']]
-    y = df['누적관객수']
-    numerical_features = ['누적매출액']
-    categorical_features = ['개봉_월', '장르', '제작국가']
-    preprocessor = ColumnTransformer(transformers=[
-        ('num', StandardScaler(), numerical_features),
-        ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features)],
-        remainder='passthrough')
-    model_pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('regressor', RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1))])
-    test_size_val = max(0.2, 1 / len(X) if len(X) > 0 else 0.2)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size_val, random_state=42)
-    model_pipeline.fit(X_train, y_train)
-    y_pred = model_pipeline.predict(X_test)
-    mse, rmse, r2 = mean_squared_error(y_test, y_pred), np.sqrt(mean_squared_error(y_test, y_pred)), r2_score(y_test, y_pred)
+    if df.empty or len(df) < 2:
+        st.warning("모델 학습을 위한 데이터가 충분하지 않습니다. 파일과 데이터 전처리 결과를 확인해주세요.")
+        mse, rmse, r2 = 0, 0, 0
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, "데이터 부족으로 예측 불가", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=16, color='gray')
+        ax.axis('off')
+    else:
+        X = df[['누적매출액', '개봉_월', '장르', '제작국가']]
+        y = df['누적관객수']
+        numerical_features = ['누적매출액']
+        categorical_features = ['개봉_월', '장르', '제작국가']
+        preprocessor = ColumnTransformer(transformers=[
+            ('num', StandardScaler(), numerical_features),
+            ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features)],
+            remainder='passthrough')
+        model_pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('regressor', RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1))])
+        
+        test_size_val = 0.2 
+        if len(X) < 10:
+             test_size_val = max(0.2, 1 / len(X) if len(X) > 0 else 0.2) 
 
-st.subheader("📊 모델 성능 지표")
-col1, col2, col3 = st.columns(3)
-col1.metric("MSE", f"{mse:,.0f}")
-col2.metric("RMSE", f"{rmse:,.0f}")
-col3.metric("R² Score", f"{r2:.4f}")
+        try:
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size_val, random_state=42)
+            model_pipeline.fit(X_train, y_train)
+            y_pred = model_pipeline.predict(X_test)
+            mse, rmse, r2 = mean_squared_error(y_test, y_pred), np.sqrt(mean_squared_error(y_test, y_pred)), r2_score(y_test, y_pred)
 
-st.subheader("📈 실제 vs 예측 관객수 시각화")
-fig, ax = plt.subplots(figsize=(10, 6)) # 그래프 크기는 유지
-sns.scatterplot(x=y_test, y=y_pred, alpha=0.6, ax=ax, color='royalblue')
-ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2, label='이상적인 예측')
-ax.set_xlabel("실제 누적 관객수")
-ax.set_ylabel("예측 누적 관객수")
-ax.set_title("랜덤 포레스트 회귀: 실제 vs 예측")
-ax.legend()
-ax.grid(True)
-ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
-ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
-plt.xticks(rotation=45)
-st.pyplot(fig)
+            st.subheader("📊 모델 성능 지표")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("MSE", f"{mse:,.0f}")
+            col2.metric("RMSE", f"{rmse:,.0f}")
+            col3.metric("R² Score", f"{r2:.4f}")
+
+            st.subheader("📈 실제 vs 예측 관객수 시각화")
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.scatterplot(x=y_test, y=y_pred, alpha=0.6, ax=ax, color='royalblue')
+            ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2, label='이상적인 예측')
+            ax.set_xlabel("실제 누적 관객수")
+            ax.set_ylabel("예측 누적 관객수")
+            ax.set_title("랜덤 포레스트 회귀: 실제 vs 예측")
+            ax.legend()
+            ax.grid(True)
+            ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
+            ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
+            plt.xticks(rotation=45)
+        except ValueError as e:
+            st.error(f"데이터 분할 또는 모델 학습 중 오류 발생: {e}. 데이터셋 크기 또는 특성을 확인해주세요.")
+            mse, rmse, r2 = 0, 0, 0
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.text(0.5, 0.5, "모델 학습 중 오류 발생", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=16, color='red')
+            ax.axis('off')
+    st.pyplot(fig)
