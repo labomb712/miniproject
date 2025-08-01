@@ -7,6 +7,7 @@ import platform
 from matplotlib import font_manager, rc
 import requests # TMDB API 호출을 위해 추가
 import datetime # 날짜 선택을 위해 추가
+import os
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -77,7 +78,7 @@ def get_movie_poster_url(movie_title):
     """
     TMDB API를 사용하여 영화 포스터 URL을 가져옵니다.
     """
-    API_KEY = "62fd419c4be9316756c61d72694907d3"
+    API_KEY = "62fd419c4be9316756c61d72694907d3" # 여기에 실제 TMDB API 키를 입력하세요.
     search_url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_title}&language=ko-KR"
     try:
         response = requests.get(search_url)
@@ -88,6 +89,7 @@ def get_movie_poster_url(movie_title):
             if poster_path:
                 return f"https://image.tmdb.org/t/p/w500{poster_path}"
     except requests.exceptions.RequestException as e:
+        # st.error(f"API 호출 중 오류 발생: {e}") # 디버깅 시 사용
         pass
     return "https://placehold.co/300x450/cccccc/000000?text=No+Image"
 
@@ -114,25 +116,35 @@ def get_kobert_similarity_matrix(dataframe):
 cosine_sim_tfidf = get_tfidf_similarity_matrix(df)
 cosine_sim_kobert = get_kobert_similarity_matrix(df)
 
-def get_recommendations(title, similarity_matrix, top_n=5):
+def get_combined_recommendations(title, sim_matrix_tfidf, sim_matrix_kobert, top_n=5, weight_tfidf=0.5, weight_kobert=0.5):
     """
-    선택된 영화와 유사한 영화를 추천합니다.
+    TF-IDF와 KoBERT 유사도 행렬을 병합하여 영화를 추천합니다.
     """
     idx = title_to_index.get(title)
     if idx is None: 
         st.warning(f"'{title}'에 대한 인덱스를 찾을 수 없습니다. 추천할 수 없습니다.")
         return None
     
-    if idx >= len(similarity_matrix):
-        st.error(f"'{title}'에 대한 인덱스를 찾았으나({idx}), 추천 모델의 범위를 벗어납니다. 데이터를 다시 확인해주세요.")
+    if idx >= len(sim_matrix_tfidf) or idx >= len(sim_matrix_kobert):
+        st.error(f"'{title}'에 대한 인덱스({idx})가 유사도 모델 범위를 벗어납니다.")
         return None
 
-    sim_scores = sorted(list(enumerate(similarity_matrix[idx])), key=lambda x: x[1], reverse=True)[1:top_n+1]
+    # 각 모델의 유사도 점수 가져오기
+    scores_tfidf = sim_matrix_tfidf[idx]
+    scores_kobert = sim_matrix_kobert[idx]
+
+    # 가중치 합산
+    # 두 유사도 행렬의 크기가 같고, 같은 인덱스에 대해 정렬되어 있다고 가정
+    combined_scores = (scores_tfidf * weight_tfidf) + (scores_kobert * weight_kobert)
+
+    # 자기 자신 제외하고 유사도 점수 추출 및 정렬
+    sim_scores = sorted(list(enumerate(combined_scores)), key=lambda x: x[1], reverse=True)[1:top_n+1]
     movie_indices = [i[0] for i in sim_scores]
     
     recommended_df = df.iloc[movie_indices][['영화명', '감독', '장르', '개봉일']].copy()
     recommended_df['포스터'] = recommended_df['영화명'].apply(get_movie_poster_url)
     return recommended_df[['포스터', '영화명', '감독', '장르', '개봉일']]
+
 
 # --- 사이드바 추가 ---
 st.sidebar.header("🔍 영화 검색 및 필터")
@@ -152,16 +164,15 @@ st.sidebar.subheader("개봉일 범위")
 min_date_data = df['개봉일'].min().date() if not df.empty else datetime.date(2000, 1, 1)
 max_date_data = df['개봉일'].max().date() if not df.empty else datetime.date.today()
 
-start_date = st.sidebar.date_input("개봉일:", value=min_date_data, min_value=min_date_data, max_value=max_date_data)
-end_date = st.sidebar.date_input("-------------------------", value=max_date_data, min_value=min_date_data, max_value=max_date_data)
+# 날짜 입력 위젯 레이블을 명확하게 지정하고, label_visibility를 "visible"로 설정
+start_date = st.sidebar.date_input("시작일:", value=min_date_data, min_value=min_date_data, max_value=max_date_data, key="sidebar_start_date")
+end_date = st.sidebar.date_input("종료일:", value=max_date_data, min_value=min_date_data, max_value=max_date_data, key="sidebar_end_date")
 
 # 날짜 유효성 검사
+date_filter_valid = True
 if start_date > end_date:
     st.sidebar.error("시작 개봉일은 종료 개봉일보다 빠를 수 없습니다.")
-    # 유효하지 않은 경우 필터링을 하지 않도록 처리하거나, 기본값으로 되돌릴 수 있음
     date_filter_valid = False
-else:
-    date_filter_valid = True
 
 
 # 필터링된 영화 목록 생성
@@ -208,28 +219,23 @@ st.session_state.selected_movie = selected_movie
 # --- 4. Streamlit UI - 영화 추천 ---
 
 st.header("✨ 콘텐츠 기반 영화 추천")
+st.write("영화를 선택하면 해당 영화의 포스터와 정보, 그리고 융합된 방식으로 추천된 영화 목록을 보여줍니다.") # 설명 업데이트
 
 if selected_movie != '영화를 선택하세요...':
+    st.markdown("---") 
     movie_info_rows = df[df['영화명'] == selected_movie]
     
     if not movie_info_rows.empty:
         movie_info = movie_info_rows.iloc[0]
         
         # 선택된 영화 정보 (포스터와 함께)
-        st.subheader(f"({selected_movie})정보")
+        st.subheader(f"({selected_movie}) 정보")
         
-        # 포스터와 정보 영역의 시각적 균형을 위한 고정된 컬럼 비율 설정
-        # 이미지 크기가 커졌으므로, 정보 영역의 비율도 그에 맞춰 조절이 필요할 수 있습니다.
-        # 여기서는 이미지 너비를 키웠으므로, col1과 col2의 비율은 다시 1:1에 가깝게 조정합니다.
-        # 필요에 따라 [1, 1], [0.8, 1.2] 등 다시 시도해보세요.
-        col1, col2 = st.columns([1, 2]) # 이미지 너비가 커졌으므로 컬럼 비율을 다시 조정
+        col1, col2 = st.columns([1, 2]) 
         
         with col1:
-            # 이미지 너비를 400 픽셀로 설정 (원하는 픽셀 값으로 변경 가능)
-            st.image(get_movie_poster_url(selected_movie), width=300) # 이미지 크기 키움
+            st.image(get_movie_poster_url(selected_movie), width=300) 
         with col2:
-            # st.markdown을 사용하여 파란 배경을 제거하고 글자색을 기본(검은색)으로 설정
-            # HTML <p> 태그와 style 속성을 사용하여 글씨 크기 키움
             st.markdown(f"<p style='font-size:31px;'><strong>감독:</strong> {movie_info['감독']}</p>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size:24px;'><strong>장르:</strong> {movie_info['장르']}</p>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size:24px;'><strong>제작국가:</strong> {movie_info['제작국가']}</p>", unsafe_allow_html=True)
@@ -240,23 +246,39 @@ if selected_movie != '영화를 선택하세요...':
         st.markdown("---")
         st.subheader(f"({selected_movie})와 비슷한 영화 추천 목록")
         
-        rec_col1, rec_col2 = st.columns(2)
-        with rec_col1:
-            st.markdown("<p style='font-size:25px;'><strong>🤖 TF-IDF기반 추천 (키워드 중심)</strong></p>", unsafe_allow_html=True)
-            rec_tfidf = get_recommendations(selected_movie, cosine_sim_tfidf)
-            if rec_tfidf is not None and not rec_tfidf.empty:
-                # 추천 테이블 내 포스터 크기도 작게 유지 (선택사항)
-                st.data_editor(rec_tfidf, column_config={"포스터": st.column_config.ImageColumn("포스터", width="small")}, hide_index=True, use_container_width=True)
-            else:
-                st.warning("TF-IDF 기반 추천 결과를 찾을 수 없습니다.")
-        with rec_col2:
-            st.markdown("<p style='font-size:25px;'><strong>🧠 KoBERT기반 추천 (의미 중심)</strong></p>", unsafe_allow_html=True)
-            rec_kobert = get_recommendations(selected_movie, cosine_sim_kobert)
-            if rec_kobert is not None and not rec_kobert.empty:
-                # 추천 테이블 내 포스터 크기도 작게 유지 (선택사항)
-                st.data_editor(rec_kobert, column_config={"포스터": st.column_config.ImageColumn("포스터", width="small")}, hide_index=True, use_container_width=True)
-            else:
-                st.warning("KoBERT 기반 추천 결과를 찾을 수 없습니다.")
+        # 사이드바에 가중치 조절 라디오 버튼 추가
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("추천 기준")
+        
+        recommendation_mode = st.sidebar.radio(
+            "어떤 기준으로 추천하시겠어요?",
+            ('의미 중심', '중간', '키워드 중심'),
+            index=1, # 기본값은 '중간' (TF-IDF 0.5)
+            key="recommendation_mode"
+        )
+
+        weight_tfidf = 0.5 # 기본값은 중간
+        if recommendation_mode == '의미 중심':
+            weight_tfidf = 0.0
+        elif recommendation_mode == '키워드 중심':
+            weight_tfidf = 1.0
+        
+        weight_kobert = 1.0 - weight_tfidf 
+        
+
+        st.markdown("<p style='font-size:25px;'><strong>✨ 추천영화</strong></p>", unsafe_allow_html=True)
+        # 병합된 추천 모델 사용
+        rec_combined = get_combined_recommendations(
+            selected_movie, 
+            cosine_sim_tfidf, 
+            cosine_sim_kobert, 
+            weight_tfidf=weight_tfidf, 
+            weight_kobert=weight_kobert
+        )
+        if rec_combined is not None and not rec_combined.empty:
+            st.data_editor(rec_combined, column_config={"포스터": st.column_config.ImageColumn("포스터", width="small")}, hide_index=True, use_container_width=True)
+        else:
+            st.warning("융합 추천 결과를 찾을 수 없습니다.")
     else:
         st.error(f"선택한 영화 '{selected_movie}'의 정보를 데이터에서 찾을 수 없습니다.")
 
@@ -286,7 +308,7 @@ with st.spinner("관객수 예측 모델을 학습하는 중입니다..."):
         
         test_size_val = 0.2 
         if len(X) < 10:
-             test_size_val = max(0.2, 1 / len(X) if len(X) > 0 else 0.2) 
+            test_size_val = max(0.2, 1 / len(X) if len(X) > 0 else 0.2) 
 
         try:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size_val, random_state=42)
