@@ -65,7 +65,7 @@ def load_data(file_path):
     df['개봉일'] = pd.to_datetime(df['개봉일'], errors='coerce', format='%Y-%m-%d') 
     
     # 누락된 데이터로 인해 최신 날짜가 제거되는 것을 방지하기 위해 범주형 컬럼의 결측치 처리
-    df['감독이름'].fillna('알 수 없음', inplace=True)
+    df['감독'].fillna('알 수 없음', inplace=True) 
     df['제작국가'].fillna('알 수 없음', inplace=True)
     df['장르'].fillna('알 수 없음', inplace=True)
 
@@ -73,28 +73,15 @@ def load_data(file_path):
     df['누적관객수'].fillna(0, inplace=True)
     df['누적매출액'].fillna(0, inplace=True)
 
-    # '개봉일'이 NaT인 행 (즉, 날짜로 변환되지 못한 값)과 '제목'이 없는 행 제거
-    df.dropna(subset=['개봉일', '제목'], inplace=True)
+    # '개봉일'이 NaT인 행 (즉, 날짜로 변환되지 못한 값)과 '영화명'이 없는 행 제거
+    df.dropna(subset=['개봉일', '영화명'], inplace=True) 
     df.reset_index(drop=True, inplace=True)
     
-    # --- 수정된 부분: 시작일을 2003년 10월 2일로 고정 ---
-    fixed_start_date_data_filter = datetime.date(2003, 10, 2) 
-    df = df[df['개봉일'].dt.date >= fixed_start_date_data_filter].copy() # 필터링 후 복사본 생성
-    df.reset_index(drop=True, inplace=True) # 인덱스 재설정
+    # --- 수정된 부분: 고정 시작일 필터링을 제거 (컬럼 내 가장 이른 날짜 사용을 위해) ---
+    # fixed_start_date_data_filter = datetime.date(2003, 10, 2) 
+    # df = df[df['개봉일'].dt.date >= fixed_start_date_data_filter].copy() # 필터링 후 복사본 생성
+    # df.reset_index(drop=True, inplace=True) # 인덱스 재설정
     # --- 수정된 부분 끝 ---
-
-    # --- 개발자용 디버깅 정보 제거 ---
-    # st.sidebar.subheader("데이터 로드 디버깅 (개발자용)")
-    # if not df.empty:
-    #     st.sidebar.write(f"최종 DF 내 최소 개봉일: {df['개봉일'].min().date()}")
-    #     st.sidebar.write(f"최종 DF 내 최대 개봉일: {df['개봉일'].max().date()}")
-    #     st.sidebar.write("최소 개봉일 주변 데이터 (상위 5개):")
-    #     st.sidebar.dataframe(df.sort_values(by='개봉일').head(5))
-    # else:
-    #     st.sidebar.write("최종 데이터프레임이 비어 있습니다.")
-    # st.sidebar.markdown("---")
-    # --- 개발자용 디버깅 정보 제거 끝 ---
-
 
     # 날짜 파생 특성 생성 (XGBoost 모델에 맞춤)
     df['개봉년도'] = df['개봉일'].dt.year
@@ -107,9 +94,9 @@ def load_data(file_path):
     df['개봉요일'] = df['개봉요일'].fillna(0).astype(int)
     
     # 추천 모델을 위한 텍스트 특성
-    df['text_for_tfidf'] = df[['감독이름', '제작국가', '장르']].astype(str).agg(' '.join, axis=1)
+    df['text_for_tfidf'] = df[['감독', '제작국가', '장르']].astype(str).agg(' '.join, axis=1)
     df['text_for_kobert'] = df.apply(
-        lambda row: f"{row['감독이름']} 감독이 제작한 {row['제작국가']} 영화. 장르는 {row['장르']}이며, {row['개봉년도']}년 {row['개봉월']}월에 개봉했습니다.",
+        lambda row: f"{row['감독']} 감독이 제작한 {row['제작국가']} 영화. 장르는 {row['장르']}이며, {row['개봉년도']}년 {row['개봉월']}월에 개봉했습니다.",
         axis=1
     )
     return df
@@ -134,7 +121,7 @@ def get_movie_poster_url(movie_title):
     return "https://placehold.co/300x450/cccccc/000000?text=No+Image"
 
 # 데이터 로드
-DATA_FILE_PATH = "data/박스오피스_2003-11_2025-07_최종.csv" 
+DATA_FILE_PATH = "data/청불제거_최종_DB컬럼.csv" 
 df = load_data(DATA_FILE_PATH)
 
 # 데이터가 비어있을 경우 Early Exit
@@ -142,8 +129,8 @@ if df.empty:
     st.error("데이터 로드 및 전처리 후 데이터가 비어 있습니다. 파일 내용과 전처리 조건을 확인해주세요.")
     st.stop()
 
-# '영화명' 대신 '제목' 컬럼 사용
-title_to_index = pd.Series(df.index, index=df['제목']).drop_duplicates() 
+# '영화명' 컬럼 사용
+title_to_index = pd.Series(df.index, index=df['영화명']).drop_duplicates() 
 
 # --- 3. 추천 모델 (TF-IDF & KoBERT) ---
 
@@ -187,16 +174,19 @@ def get_combined_recommendations(title, sim_matrix_tfidf, sim_matrix_kobert, top
     sim_scores = sorted(list(enumerate(combined_scores)), key=lambda x: x[1], reverse=True)[1:top_n+1]
     movie_indices = [i[0] for i in sim_scores]
     
-    recommended_df = df.iloc[movie_indices][['제목', '감독이름', '장르', '개봉일']].copy()
-    recommended_df['포스터'] = recommended_df['제목'].apply(get_movie_poster_url)
-    return recommended_df[['포스터', '제목', '감독이름', '장르', '개봉일']]
+    # '영화명' 컬럼 사용
+    recommended_df = df.iloc[movie_indices][['영화명', '감독', '장르', '개봉일']].copy()
+    # '영화명' 컬럼 사용
+    recommended_df['포스터'] = recommended_df['영화명'].apply(get_movie_poster_url)
+    # '영화명' 컬럼 사용
+    return recommended_df[['포스터', '영화명', '감독', '장르', '개봉일']]
 
 
 # --- 사이드바 추가 ---
 st.sidebar.header("🔍 영화 검색 및 필터")
 
 # 감독 필터
-all_directors = ['전체 감독'] + sorted(df['감독이름'].unique().tolist())
+all_directors = ['전체 감독'] + sorted(df['감독'].unique().tolist())
 selected_director = st.sidebar.selectbox("감독:", all_directors)
 
 # 장르 필터
@@ -207,23 +197,25 @@ selected_genre = st.sidebar.selectbox("장르:", all_genres)
 st.sidebar.markdown("---")
 st.sidebar.subheader("개봉일 범위")
 
-fixed_start_date_for_ui = datetime.date(2003, 10, 2) 
+# --- 수정된 부분: 개봉일 시작일을 데이터에서 가장 이른 날짜로 설정 ---
+min_date_for_display = df['개봉일'].min().date() if not df.empty else datetime.date(2000, 1, 1) # 기본값 설정
 max_date_for_display = df['개봉일'].max().date() if not df.empty else datetime.date.today()
 
 start_date = st.sidebar.date_input(
     "시작일:", 
-    value=fixed_start_date_for_ui, 
-    min_value=fixed_start_date_for_ui, 
+    value=min_date_for_display, # 데이터의 최소 개봉일로 초기값 설정
+    min_value=min_date_for_display, # 데이터의 최소 개봉일 이하로 선택 불가
     max_value=max_date_for_display, 
     key="sidebar_start_date"
 )
 end_date = st.sidebar.date_input(
     "종료일:", 
     value=max_date_for_display, 
-    min_value=fixed_start_date_for_ui, 
+    min_value=min_date_for_display, # 시작일과 동일하게 최소값 설정
     max_value=max_date_for_display, 
     key="sidebar_end_date"
 )
+# --- 수정된 부분 끝 ---
 
 # 날짜 유효성 검사
 date_filter_valid = True
@@ -236,7 +228,7 @@ if start_date > end_date:
 filtered_df = df.copy()
 
 if selected_director != '전체 감독':
-    filtered_df = filtered_df[filtered_df['감독이름'] == selected_director] 
+    filtered_df = filtered_df[filtered_df['감독'] == selected_director] 
 
 if selected_genre != '전체 장르':
     filtered_df = filtered_df[filtered_df['장르'] == selected_genre]
@@ -253,13 +245,15 @@ if filtered_df.empty and (selected_director != '전체 감독' or selected_genre
     movie_list = ['영화를 선택하세요...']
     selected_movie = '영화를 선택하세요...'
 elif not filtered_df.empty:
-    movie_list = ['영화를 선택하세요...'] + sorted(filtered_df['제목'].unique().tolist()) 
+    # '영화명' 컬럼 사용
+    movie_list = ['영화를 선택하세요...'] + sorted(filtered_df['영화명'].unique().tolist()) 
     if 'selected_movie' not in st.session_state or st.session_state.selected_movie not in movie_list:
         selected_movie = '영화를 선택하세요...'
     else:
         selected_movie = st.session_state.selected_movie
 else: # 필터링 조건이 없을 경우 전체 영화 목록 사용
-    movie_list = ['영화를 선택하세요...'] + sorted(df['제목'].unique().tolist()) 
+    # '영화명' 컬럼 사용
+    movie_list = ['영화를 선택하세요...'] + sorted(df['영화명'].unique().tolist()) 
     if 'selected_movie' not in st.session_state:
         selected_movie = '영화를 선택하세요...'
     else:
@@ -277,7 +271,8 @@ st.write("영화를 선택하면 해당 영화의 포스터와 정보, 그리고
 
 if selected_movie != '영화를 선택하세요...':
     st.markdown("---") 
-    movie_info_rows = df[df['제목'] == selected_movie] 
+    # '영화명' 컬럼 사용
+    movie_info_rows = df[df['영화명'] == selected_movie] 
     
     if not movie_info_rows.empty:
         movie_info = movie_info_rows.iloc[0]
@@ -289,7 +284,7 @@ if selected_movie != '영화를 선택하세요...':
         with col1:
             st.image(get_movie_poster_url(selected_movie), width=300) 
         with col2:
-            st.markdown(f"<p style='font-size:31px;'><strong>감독:</strong> {movie_info['감독이름']}</p>", unsafe_allow_html=True) 
+            st.markdown(f"<p style='font-size:31px;'><strong>감독:</strong> {movie_info['감독']}</p>", unsafe_allow_html=True) 
             st.markdown(f"<p style='font-size:24px;'><strong>장르:</strong> {movie_info['장르']}</p>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size:24px;'><strong>제작국가:</b> {movie_info['제작국가']}</p>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size:24px;'><strong>개봉일:</strong> {movie_info['개봉일'].date()}</p>", unsafe_allow_html=True)
@@ -343,7 +338,7 @@ st.markdown("\n\n---\n\n")
 st.header("🎯 누적 관객수 예측 모델")
 with st.spinner("관객수 예측 모델을 학습하는 중입니다..."):
     # XGBoost 모델의 특성 컬럼 정의
-    xgb_features = ['감독이름', '제작국가', '장르', '개봉년도', '개봉월', '개봉요일', '누적매출액']
+    xgb_features = ['감독', '제작국가', '장르', '개봉년도', '개봉월', '개봉요일', '누적매출액']
     xgb_target = '누적관객수'
 
     # 필요한 모든 컬럼이 DataFrame에 있는지 최종 확인
@@ -360,9 +355,11 @@ with st.spinner("관객수 예측 모델을 학습하는 중입니다..."):
     # XGBoost 모델 학습 전 데이터 준비
     xgb_df = df.copy()
 
+    # LabelEncoder 인스턴스를 루프 밖에서 생성
+    le = LabelEncoder() 
+    
     # 범주형 컬럼 Label Encoding (XGBoost 모델용)
-    le = LabelEncoder()
-    for col in ['감독이름', '제작국가', '장르']:
+    for col in ['감독', '제작국가', '장르']:
         xgb_df[col] = le.fit_transform(xgb_df[col].astype(str)) 
 
     X_xgb = xgb_df[xgb_features]
