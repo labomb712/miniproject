@@ -255,7 +255,7 @@ st.markdown("""
     }
     .movie-detail-item {
         margin-bottom: 8px; /* Spacing between detail items */
-        font-size: 22px !important; /* Increased size and added !important */
+        font-size: 28px !important; /* Increased size and added !important */
         font-weight: bold !important; /* Made bolder and added !important */
         line-height: 1.4; /* 줄 간격 조절 */
     }
