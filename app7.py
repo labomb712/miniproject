@@ -512,13 +512,13 @@ if selected_movie != '영화를 선택하세요...':
         col_kobert, col_tfidf = st.columns(2)
 
         with col_kobert:
-            kobert_button_label = '장르 (KoBERT)'
+            kobert_button_label = '장르 (KoBERT)' # 버튼 레이블
             if st.button(kobert_button_label, key="btn_kobert"):
                 st.session_state.recommendation_mode = kobert_button_label
                 st.rerun() # 버튼 클릭 시 상태 업데이트를 위해 rerun
 
         with col_tfidf:
-            tfidf_button_label = '감독 (TF-IDF)'
+            tfidf_button_label = '감독 (TF-IDF)' # 버튼 레이블
             if st.button(tfidf_button_label, key="btn_tfidf"):
                 st.session_state.recommendation_mode = tfidf_button_label
                 st.rerun() # 버튼 클릭 시 상태 업데이트를 위해 rerun
@@ -526,12 +526,12 @@ if selected_movie != '영화를 선택하세요...':
         # Python에서 Streamlit 버튼에 CSS 클래스 적용하는 부분
         # Streamlit은 버튼에 직접 class 속성을 추가하는 기능을 제공하지 않으므로,
         # JavaScript를 사용하여 렌더링 후 DOM을 조작해야 합니다.
-        # 이 스크립트는 버튼의 data-testid와 key 속성을 이용하여 해당 버튼을 찾습니다.
+        # 이 스크립트는 버튼의 data-testid와 key 속성을 이용하여 특정 버튼을 찾습니다.
         st.markdown(f"""
             <script>
                 var kobertButton = document.querySelector('[data-testid="stButton"] button[key="btn_kobert"]');
                 if (kobertButton) {{
-                    if ("{st.session_state.recommendation_mode}" === "의미 중심 (KoBERT)") {{
+                    if ("{st.session_state.recommendation_mode}" === "장르 (KoBERT)") {{ /* 여기가 수정됨 */
                         kobertButton.classList.add('selected-button');
                         kobertButton.classList.remove('unselected-button');
                     }} else {{
@@ -542,7 +542,7 @@ if selected_movie != '영화를 선택하세요...':
 
                 var tfidfButton = document.querySelector('[data-testid="stButton"] button[key="btn_tfidf"]');
                 if (tfidfButton) {{
-                    if ("{st.session_state.recommendation_mode}" === "키워드 중심 (TF-IDF)") {{
+                    if ("{st.session_state.recommendation_mode}" === "감독 (TF-IDF)") {{ /* 여기가 수정됨 */
                         tfidfButton.classList.add('selected-button');
                         tfidfButton.classList.remove('unselected-button');
                     }} else {{
@@ -556,10 +556,12 @@ if selected_movie != '영화를 선택하세요...':
         # --- 여기까지 변경 ---
 
         weight_tfidf = 0.5 
-        if st.session_state.recommendation_mode == '의미 중심 (KoBERT)':
+        # === 여기가 수정됨 ===
+        if st.session_state.recommendation_mode == '장르 (KoBERT)':
             weight_tfidf = 0.0 
-        elif st.session_state.recommendation_mode == '키워드 중심 (TF-IDF)':
+        elif st.session_state.recommendation_mode == '감독 (TF-IDF)':
             weight_tfidf = 1.0 
+        # ====================
         
         weight_kobert = 1.0 - weight_tfidf 
         
@@ -683,11 +685,13 @@ with st.spinner("⏳ 관객수 예측 모델을 학습하는 중입니다..."):
             col3.metric("MAE", f"{mae:,.0f}") 
             col4.metric("R² Score", f"{r2:.4f}")
 
+            st.subheader("📉 실제 vs 예측 관객수 시각화 (XGBoost 모델)")
             fig, ax = plt.subplots(figsize=(10, 6))
             sns.scatterplot(x=y_test_xgb, y=y_pred_xgb, alpha=0.6, ax=ax, color='#66b2ff') # Lighter blue scatter
             ax.plot([y_test_xgb.min(), y_test_xgb.max()], [y_test_xgb.min(), y_test_xgb.max()], 'r--', lw=2, label='이상적인 예측')
             ax.set_xlabel("실제 누적 관객수", color='#f0f0f0')
             ax.set_ylabel("예측 누적 관객수", color='#f0f0f0')
+            ax.set_title("XGBoost 회귀: 실제 vs 예측", color='#FFD700')
             ax.legend(labelcolor='#f0f0f0')
             ax.grid(True, color='#5a5f6e', linestyle=':', alpha=0.7) # Lighter grid lines
             
@@ -717,7 +721,8 @@ with st.spinner("⏳ 관객수 예측 모델을 학습하는 중입니다..."):
 
 # --- 6. 'merged_test.csv' 파일의 예측 결과 시각화 추가 ---
 st.markdown("\n\n---\n\n")
-st.header("📊 모델 성능 지표") 
+st.header("📊 CatBoost 예측 결과 시각화") # "모델 성능 지표"에서 변경
+st.write("별도로 예측된 'merged_test.csv' 파일의 CatBoost 모델 예측 결과를 시각화합니다.")
 
 MERGED_TEST_FILE_PATH = "data/merged_test.csv"
 
@@ -755,6 +760,7 @@ if not merged_test_df.empty:
     ax_merged.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='이상적인 예측')
     ax_merged.set_xlabel("실제 누적 관객수", color='#f0f0f0')
     ax_merged.set_ylabel("예측 누적 관객수", color='#f0f0f0')
+    ax_merged.set_title("CatBoost 회귀: 실제 vs 예측", color='#FFD700')
     ax_merged.legend(labelcolor='#f0f0f0')
     ax_merged.grid(True, color='#5a5f6e', linestyle=':', alpha=0.7) 
     
