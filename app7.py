@@ -478,7 +478,7 @@ if not merged_test_df.empty:
     ax_merged.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='이상적인 예측')
     ax_merged.set_xlabel("실제 누적 관객수")
     ax_merged.set_ylabel("예측 누적 관객수")
-    ax_merged.set_title("merged_test.csv: 실제 vs 예측")
+    ax_merged.set_title("catboost 모델: 실제 vs 예측")
     ax_merged.legend()
     ax_merged.grid(True)
     
