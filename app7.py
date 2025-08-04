@@ -58,8 +58,7 @@ st.markdown("""
 
     /* 사이드바 헤더 및 라벨 텍스트 색상 (메인 타이틀과 통일) */
     .stSidebar h1, .stSidebar h2, .stSidebar h3, .stSidebar h4, .stSidebar h5, .stSidebar h6,
-    .stSidebar .stSelectbox label, .stSidebar .stDateInput label, .stSidebar .stRadio label,
-    .stSidebar .stSlider label, .stSidebar .stTextInput label { /* 추가적으로 다른 위젯 라벨도 포함 */
+    .stSidebar .stSelectbox label, .stSidebar .stDateInput label, .stSidebar .stSlider label, .stSidebar .stTextInput label {
         color: #FFD700; /* Gold/Yellow for consistency */
     }
     /* 사이드바 일반 텍스트 */
@@ -67,30 +66,50 @@ st.markdown("""
         color: #e0e0e0; /* Light gray for general text in sidebar */
     }
 
-    /* 사이드바 라디오 버튼 텍스트 색상 (선택 안 된 상태) */
-    .stSidebar .stRadio div[role="radiogroup"] label p {
-        color: #f0f0f0; /* 기본 라디오 버튼 텍스트 색상 */
-    }
-    /* 사이드바 라디오 버튼 텍스트 색상 (선택된 상태) */
-    .stSidebar .stRadio div[role="radiogroup"] label[data-baseweb="radio"] span:first-child p {
-        color: #2c313d !important; /* 선택되었을 때 배경색에 대비되는 어두운 색 */
-        font-weight: bold; /* 선택된 항목 더 강조 */
-    }
-    /* 사이드바 라디오 버튼 호버 시 텍스트 색상 */
-    .stSidebar .stRadio div[role="radiogroup"] label:hover p {
-        color: #2c313d !important; /* 호버 시 배경색에 대비되는 어두운 색 */
-    }
-    /* 라디오 버튼 항목 사이 간격 추가 (horizontal=True일 때 유효) */
-    .stSidebar .stRadio div[role="radiogroup"] {
-        display: flex; /* 자식 요소들을 가로로 정렬 */
-        justify-content: flex-start; /* flex-start로 변경하여 왼쪽부터 고정 간격 */
-        gap: 20px; /* 각 항목 사이의 간격 */
-        flex-wrap: wrap; /* 공간이 부족하면 다음 줄로 넘어가도록 */
-    }
-    .stSidebar .stRadio div[role="radiogroup"] label {
-        margin-right: 0; /* 기존 margin-right 충돌 방지 */
+    /* --- 일반 버튼 스타일 (추천 기준 조정에 사용) --- */
+    /* 기본 버튼 스타일 */
+    .stButton > button {
+        background-color: #3f4451; /* 어두운 회색 */
+        color: #87CEEB; /* 밝은 스카이블루 */
+        border: 1px solid #0056b3; /* 짙은 파란색 테두리 */
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-weight: bold;
+        transition: all 0.2s ease-in-out;
+        width: 100%; /* 컬럼 내에서 가득 채우도록 */
+        cursor: pointer;
     }
 
+    /* 버튼 호버 시 스타일 */
+    .stButton > button:hover {
+        background-color: #007bff; /* 중간 파란색 */
+        color: #f0f0f0; /* 밝은 흰색 */
+        border-color: #FFD700; /* 골드 테두리 */
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    /* 선택된 버튼 스타일 (JS를 통해 클래스 추가) */
+    .stButton > button.selected-button {
+        background-color: #002e63 !important; /* 아주 진한 파란색 */
+        color: #FFD700 !important; /* 골드 텍스트 */
+        border-color: #FFD700 !important; /* 골드 테두리 */
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); /* 골드 빛 그림자 */
+    }
+
+    /* 선택되지 않은 버튼 스타일 (기본 버튼 스타일에서 상속받되, 필요시 오버라이드) */
+    .stButton > button.unselected-button {
+        background-color: #3f4451; /* 어두운 회색 */
+        color: #87CEEB; /* 밝은 스카이블루 */
+        border: 1px solid #0056b3; /* 짙은 파란색 테두리 */
+    }
+
+    /* Streamlit 컬럼 내 버튼의 불필요한 마진 제거 및 정렬 */
+    div[data-testid="column"] > div > .stButton {
+        margin-bottom: 0px; /* 버튼 하단 마진 제거 */
+    }
+
+    /* --- (이전 st.radio 관련 CSS는 모두 삭제하거나 주석 처리했습니다) --- */
 
     /* 메인 컨텐츠 헤더 및 타이틀 색상 */
     h1, h2, h3, h4, h5, h6 {
@@ -102,8 +121,8 @@ st.markdown("""
         color: #e0e0e0; /* Slightly darker than main text for general info */
     }
 
-    /* selectbox, button 등 위젯 배경 */
-    .stSelectbox > div > div, .stTextInput > div > div > input, .stDateInput > div > div > input, .stRadio > label, .stButton > button {
+    /* selectbox, textinput, dateinput 등 기타 위젯 배경 및 텍스트 색상 */
+    .stSelectbox > div > div, .stTextInput > div > div > input, .stDateInput > div > div > input {
         background-color: #3f4451; /* Medium dark gray for widgets */
         color: #f0f0f0;
         border: 1px solid #FFD700; /* Gold border */
@@ -121,13 +140,6 @@ st.markdown("""
     .stSelectbox div[role="option"]:hover {
         background-color: #FFD700;
         color: #2c313d; /* Dark text on hover */
-    }
-
-
-    .stButton > button:hover {
-        background-color: #FFD700; /* Gold on hover */
-        color: #2c313d; /* Dark text on hover */
-        border: 1px solid #f0f0f0; /* Light border on hover */
     }
 
     /* Metric 카드 */
@@ -151,7 +163,6 @@ st.markdown("""
         color: #FFD700; /* Delta in accent color */
     }
 
-
     /* 경고/에러 메시지 */
     .stAlert {
         background-color: #5c2020; /* Darker red for errors */
@@ -166,11 +177,6 @@ st.markdown("""
         border-radius: 5px;
     }
     
-    /* 기존 recommendation-card 스타일 제거 또는 비활성화 */
-    /* div[data-testid^="column"] > div {
-        display: none; // 기존 컬럼 기반 카드는 숨김
-    } */
-
     /* 새로운 추천 목록 스타일 (각 영화가 하나의 리스트 아이템처럼 보이도록) */
     .recommendation-list-item {
         display: flex; /* 가로 배열을 위해 flexbox 사용 */
@@ -249,7 +255,7 @@ st.markdown("""
     }
     .movie-detail-item {
         margin-bottom: 8px; /* Spacing between detail items */
-        font-size: 28px !important; /* Increased size and added !important */
+        font-size: 22px !important; /* Increased size and added !important */
         font-weight: bold !important; /* Made bolder and added !important */
         line-height: 1.4; /* 줄 간격 조절 */
     }
@@ -496,22 +502,64 @@ if selected_movie != '영화를 선택하세요...':
         st.markdown("---")
         st.subheader(f"[{selected_movie}]와 비슷한 영화 추천 목록 🍿")
         
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("⚖️ 추천 기준 조정")
+        # --- 추천 기준 조정을 일반 버튼으로 변경 ---
+        st.subheader("⚖️ 추천 기준 조정")
+
+        # 세션 상태 초기화 (처음 로드 시)
+        if 'recommendation_mode' not in st.session_state:
+            st.session_state.recommendation_mode = '장르 (KoBERT)' # 기본값 설정
+
+        col_kobert, col_tfidf = st.columns(2)
+
+        with col_kobert:
+            kobert_button_label = '장르 (KoBERT)'
+            if st.button(kobert_button_label, key="btn_kobert"):
+                st.session_state.recommendation_mode = kobert_button_label
+                st.rerun() # 버튼 클릭 시 상태 업데이트를 위해 rerun
+
+        with col_tfidf:
+            tfidf_button_label = '감독 (TF-IDF)'
+            if st.button(tfidf_button_label, key="btn_tfidf"):
+                st.session_state.recommendation_mode = tfidf_button_label
+                st.rerun() # 버튼 클릭 시 상태 업데이트를 위해 rerun
+
+        # Python에서 Streamlit 버튼에 CSS 클래스 적용하는 부분
+        # Streamlit은 버튼에 직접 class 속성을 추가하는 기능을 제공하지 않으므로,
+        # JavaScript를 사용하여 렌더링 후 DOM을 조작해야 합니다.
+        # 이 스크립트는 버튼의 data-testid와 key 속성을 이용하여 해당 버튼을 찾습니다.
+        st.markdown(f"""
+            <script>
+                var kobertButton = document.querySelector('[data-testid="stButton"] button[key="btn_kobert"]');
+                if (kobertButton) {{
+                    if ("{st.session_state.recommendation_mode}" === "의미 중심 (KoBERT)") {{
+                        kobertButton.classList.add('selected-button');
+                        kobertButton.classList.remove('unselected-button');
+                    }} else {{
+                        kobertButton.classList.add('unselected-button');
+                        kobertButton.classList.remove('selected-button');
+                    }}
+                }}
+
+                var tfidfButton = document.querySelector('[data-testid="stButton"] button[key="btn_tfidf"]');
+                if (tfidfButton) {{
+                    if ("{st.session_state.recommendation_mode}" === "키워드 중심 (TF-IDF)") {{
+                        tfidfButton.classList.add('selected-button');
+                        tfidfButton.classList.remove('unselected-button');
+                    }} else {{
+                        tfidfButton.classList.add('unselected-button');
+                        tfidfButton.classList.remove('selected-button');
+                    }}
+                }}
+            </script>
+        """, unsafe_allow_html=True)
         
-        recommendation_mode = st.sidebar.radio(
-            "어떤 기준으로 추천하시겠어요?",
-            ('의미 중심 (KoBERT)', '키워드 중심 (TF-IDF)'), # '중간 (50:50)' 제거
-            index=0, # 기본 선택을 '의미 중심 (KoBERT)'으로 변경 (인덱스 0)
-            key="recommendation_mode",
-            horizontal=True
-        )
+        # --- 여기까지 변경 ---
 
         weight_tfidf = 0.5 
-        if recommendation_mode == '의미 중심 (KoBERT)':
-            weight_tfidf = 0.0 # KoBERT 중심이므로 TF-IDF 가중치 0
-        elif recommendation_mode == '키워드 중심 (TF-IDF)':
-            weight_tfidf = 1.0 # TF-IDF 중심이므로 TF-IDF 가중치 1
+        if st.session_state.recommendation_mode == '의미 중심 (KoBERT)':
+            weight_tfidf = 0.0 
+        elif st.session_state.recommendation_mode == '키워드 중심 (TF-IDF)':
+            weight_tfidf = 1.0 
         
         weight_kobert = 1.0 - weight_tfidf 
         
@@ -590,7 +638,8 @@ with st.spinner("⏳ 관객수 예측 모델을 학습하는 중입니다..."):
         ax.axis('off')
     else:
         try:
-            from sklearn.model_selection import train_test_split as train_train_split # Changed from train_test_split to avoid name collision if not imported directly
+            # Changed from train_test_split to train_train_split to avoid name collision if not imported directly in user's original file
+            from sklearn.model_selection import train_test_split as train_train_split 
             X_train_xgb, X_test_xgb, y_train_xgb, y_test_xgb = train_train_split(
                 X_xgb, y_xgb, test_size=0.2, random_state=42
             )
@@ -634,13 +683,11 @@ with st.spinner("⏳ 관객수 예측 모델을 학습하는 중입니다..."):
             col3.metric("MAE", f"{mae:,.0f}") 
             col4.metric("R² Score", f"{r2:.4f}")
 
-            st.subheader("📉 실제 vs 예측 관객수 시각화 (XGBoost 모델)")
             fig, ax = plt.subplots(figsize=(10, 6))
             sns.scatterplot(x=y_test_xgb, y=y_pred_xgb, alpha=0.6, ax=ax, color='#66b2ff') # Lighter blue scatter
             ax.plot([y_test_xgb.min(), y_test_xgb.max()], [y_test_xgb.min(), y_test_xgb.max()], 'r--', lw=2, label='이상적인 예측')
             ax.set_xlabel("실제 누적 관객수", color='#f0f0f0')
             ax.set_ylabel("예측 누적 관객수", color='#f0f0f0')
-            ax.set_title("XGBoost 회귀: 실제 vs 예측", color='#FFD700')
             ax.legend(labelcolor='#f0f0f0')
             ax.grid(True, color='#5a5f6e', linestyle=':', alpha=0.7) # Lighter grid lines
             
@@ -670,8 +717,7 @@ with st.spinner("⏳ 관객수 예측 모델을 학습하는 중입니다..."):
 
 # --- 6. 'merged_test.csv' 파일의 예측 결과 시각화 추가 ---
 st.markdown("\n\n---\n\n")
-st.header("📊 CatBoost 예측 결과 시각화") # CatBoost로 명칭 변경 유지
-st.write("별도로 예측된 'merged_test.csv' 파일의 CatBoost 모델 예측 결과를 시각화합니다.")
+st.header("📊 모델 성능 지표") 
 
 MERGED_TEST_FILE_PATH = "data/merged_test.csv"
 
@@ -693,17 +739,6 @@ def load_and_preprocess_merged_test_data(file_path):
 
 merged_test_df = load_and_preprocess_merged_test_data(MERGED_TEST_FILE_PATH)
 
-# --- 디버깅용 코드 시작 (이전 요청에서 추가된 부분, 필요 없으면 삭제 가능) ---
-# st.write(f"merged_test_df가 비어있습니까?: {merged_test_df.empty}")
-# if not merged_test_df.empty:
-#     st.write("merged_test_df의 첫 5행:")
-#     st.dataframe(merged_test_df.head())
-#     st.write("merged_test_df 컬럼:")
-#     st.write(merged_test_df.columns.tolist())
-#     st.write("누적관객수 데이터 타입:", merged_test_df['누적관객수'].dtype)
-#     st.write("예측_누적관객수 데이터 타입:", merged_test_df['예측_누적관객수'].dtype)
-# --- 디버깅용 코드 끝 ---
-
 if not merged_test_df.empty:
     y_actual_merged = merged_test_df['누적관객수']
     y_predicted_merged = merged_test_df['예측_누적관객수']
@@ -712,7 +747,7 @@ if not merged_test_df.empty:
 
     st.subheader("📉 실제 누적관객수 vs 예측 누적관객수 (CatBoost 모델)")
     fig_merged, ax_merged = plt.subplots(figsize=(10, 6))
-    sns.scatterplot(x=y_actual_merged, y=y_predicted_merged, alpha=0.6, ax=ax_merged, color='#85e085') # Lighter green scatter
+    sns.scatterplot(x=y_actual_merged, y=y_predicted_merged, alpha=0.6, ax=ax_merged, color='#85e085') 
     
     min_val = min(y_actual_merged.min(), y_predicted_merged.min())
     max_val = max(y_actual_merged.max(), y_predicted_merged.max())
@@ -720,9 +755,8 @@ if not merged_test_df.empty:
     ax_merged.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='이상적인 예측')
     ax_merged.set_xlabel("실제 누적 관객수", color='#f0f0f0')
     ax_merged.set_ylabel("예측 누적 관객수", color='#f0f0f0')
-    ax_merged.set_title("CatBoost 회귀: 실제 vs 예측", color='#FFD700')
     ax_merged.legend(labelcolor='#f0f0f0')
-    ax_merged.grid(True, color='#5a5f6e', linestyle=':', alpha=0.7) # Lighter grid lines
+    ax_merged.grid(True, color='#5a5f6e', linestyle=':', alpha=0.7) 
     
     # Set tick and spine colors for the plot
     ax_merged.tick_params(axis='x', colors='#f0f0f0')
