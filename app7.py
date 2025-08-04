@@ -42,36 +42,58 @@ setup_korean_font()
 
 st.set_page_config(page_title="영화 예측 시스템", layout="centered", initial_sidebar_state="expanded") # 사이드바 기본 확장
 
-# --- 사용자 정의 CSS (새로운 추천 목록 디자인 적용 및 라디오 버튼 간격 추가) ---
+# --- 사용자 정의 CSS (새로운 색상 팔레트 적용) ---
 st.markdown("""
 <style>
-    /* 전체 앱 배경 및 기본 텍스트 색상 */
+    /* 전체 앱 배경 */
     .stApp {
-        background-color: #2c313d; /* Soft dark gray */
-        color: #f0f0f0; /* Very light gray for main text */
+        background-color: #F5F7FA; /* 배경색: 매우 연한 푸른빛 회색 */
+        color: #1F2937; /* 텍스트색: 아주 어두운 회색 */
     }
 
-    /* 사이드바 배경 */
+    /* 사이드바 (네비게이션 바) 배경 */
     .stSidebar {
-        background-color: #20232a; /* Slightly darker gray for sidebar */
+        background-color: #64748B; /* 네비게이션 바색: Slate Gray로 변경 */
+        border-right: 1px solid #C5D9FA; /* 사이드바 경계선 조정 */
+        width: 560px; /* 사이드바 너비 고정 */
+        min-width: 560px; /* 사이드바 최소 너비 설정 (고정 효과 강화) */
     }
 
-    /* 사이드바 헤더 및 라벨 텍스트 색상 (메인 타이틀과 통일) */
-    .stSidebar h1, .stSidebar h2, .stSidebar h3, .stSidebar h4, .stSidebar h5, .stSidebar h6,
-    .stSidebar .stSelectbox label, .stSidebar .stDateInput label, .stSidebar .stSlider label, .stSidebar .stTextInput label {
-        color: #FFD700; /* Gold/Yellow for consistency */
+    /* 사이드바 헤더 및 일반 텍스트 색상 */
+    /* !important를 추가하여 우선순위 강제 적용 */
+    .stSidebar [data-testid="stSidebarHeader"] h2,
+    .stSidebar [data-testid="stSidebarHeader"] h3,
+    .stSidebar [data-testid="stSidebarHeader"] h4,
+    .stSidebar [data-testid="stSidebarHeader"] h5,
+    .stSidebar [data-testid="stSidebarHeader"] h6,
+    .stSidebar [data-testid="stText"] p, /* st.write, st.markdown 등 일반 텍스트 */
+    .stSidebar [data-testid="stMarkdown"] p, /* st.markdown으로 생성된 텍스트 */
+    .stSidebar [data-testid="stMetricLabel"], /* st.metric 라벨 */
+    .stSidebar label, /* 모든 라벨 */
+    /* 사이드바 내부의 st.header와 st.subheader 텍스트 */
+    .stSidebar h1, .stSidebar h2, .stSidebar h3, .stSidebar h4, .stSidebar h5, .stSidebar h6 { 
+        color: #FFFFFF !important; /* 사이드바 텍스트색: 흰색으로 변경 */
     }
-    /* 사이드바 일반 텍스트 */
-    .stSidebar .stMarkdown p, .stSidebar .stMarkdown strong, .stSidebar label {
-        color: #e0e0e0; /* Light gray for general text in sidebar */
+    
+    /* 특히 selectbox, dateinput 등 위젯의 라벨 텍스트에 직접 접근 */
+    .stSidebar [data-testid="stSelectbox"] label,
+    .stSidebar [data-testid="stDateInput"] label,
+    .stSidebar [data-testid="stSlider"] label,
+    .stSidebar [data-testid="stTextInput"] label {
+        color: #FFFFFF !important; /* 사이드바 텍스트색: 흰색으로 변경 */
+    }
+
+    /* 사이드바 내의 수평선 (---) 색상 변경 */
+    .stSidebar hr {
+        border-top: 1px solid #FFFFFF !important; /* 선의 색상을 흰색으로 강제 변경 */
     }
 
     /* --- 일반 버튼 스타일 (추천 기준 조정에 사용) --- */
     /* 기본 버튼 스타일 */
     .stButton > button {
-        background-color: #3f4451; /* 어두운 회색 */
-        color: #87CEEB; /* 밝은 스카이블루 */
-        border: 1px solid #0056b3; /* 짙은 파란색 테두리 */
+        background-color: #D1D5DB; /* 연한 회색 */
+        color: #1F2937; /* 어두운 텍스트 */
+        border: 1px solid #9CA3AF; /* 중간 회색 테두리 */
         border-radius: 5px;
         padding: 10px 20px;
         font-weight: bold;
@@ -82,26 +104,26 @@ st.markdown("""
 
     /* 버튼 호버 시 스타일 */
     .stButton > button:hover {
-        background-color: #007bff; /* 중간 파란색 */
-        color: #f0f0f0; /* 밝은 흰색 */
-        border-color: #FFD700; /* 골드 테두리 */
+        background-color: #BFDBFE; /* 강조색보다 연한 파랑 */
+        color: #2563EB; /* 강조색 */
+        border-color: #2563EB; /* 강조색 */
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 
     /* 선택된 버튼 스타일 (JS를 통해 클래스 추가) */
     .stButton > button.selected-button {
-        background-color: #002e63 !important; /* 아주 진한 파란색 */
-        color: #FFD700 !important; /* 골드 텍스트 */
-        border-color: #FFD700 !important; /* 골드 테두리 */
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); /* 골드 빛 그림자 */
+        background-color: #2563EB !important; /* 강조색 */
+        color: #FFFFFF !important; /* 흰색 텍스트 */
+        border-color: #2563EB !important; /* 강조색 */
+        box-shadow: 0 0 10px rgba(37, 99, 235, 0.5); /* 강조색 그림자 */
     }
 
-    /* 선택되지 않은 버튼 스타일 (기본 버튼 스타일에서 상속받되, 필요시 오버라이드) */
+    /* 선택되지 않은 버튼 스타일 */
     .stButton > button.unselected-button {
-        background-color: #3f4451; /* 어두운 회색 */
-        color: #87CEEB; /* 밝은 스카이블루 */
-        border: 1px solid #0056b3; /* 짙은 파란색 테두리 */
+        background-color: #D1D5DB; /* 연한 회색 */
+        color: #1F2937; /* 어두운 텍스트 */
+        border: 1px solid #9CA3AF; /* 중간 회색 테두리 */
     }
 
     /* Streamlit 컬럼 내 버튼의 불필요한 마진 제거 및 정렬 */
@@ -109,125 +131,128 @@ st.markdown("""
         margin-bottom: 0px; /* 버튼 하단 마진 제거 */
     }
 
-    /* --- (이전 st.radio 관련 CSS는 모두 삭제하거나 주석 처리했습니다) --- */
-
     /* 메인 컨텐츠 헤더 및 타이틀 색상 */
-    h1, h2, h3, h4, h5, h6 {
-        color: #FFD700; /* Gold/Yellow for accents */
+    h2, h3, h4, h5, h6 {
+        color: #2563EB; /* 강조색 */
+    }
+    
+    /* h1 색상을 검은색으로 변경 (명시적으로) */
+    h1 {
+        color: #1F2937 !important; /* 텍스트색 */
     }
     
     /* 메인 타이틀 설명 텍스트 */
     .stMarkdown p {
-        color: #e0e0e0; /* Slightly darker than main text for general info */
+        color: #1F2937; /* 텍스트색 */
     }
 
     /* selectbox, textinput, dateinput 등 기타 위젯 배경 및 텍스트 색상 */
     .stSelectbox > div > div, .stTextInput > div > div > input, .stDateInput > div > div > input {
-        background-color: #3f4451; /* Medium dark gray for widgets */
-        color: #f0f0f0;
-        border: 1px solid #FFD700; /* Gold border */
+        background-color: #FFFFFF; /* 흰색 배경 */
+        color: #1F2937; /* 텍스트색 */
+        border: 1px solid #D1D5DB; /* 연한 회색 테두리 */
         border-radius: 5px;
     }
     
     /* Selectbox 드롭다운 아이템 */
     .stSelectbox div[role="listbox"] {
-        background-color: #3f4451;
-        color: #f0f0f0;
+        background-color: #FFFFFF;
+        color: #1F2937;
     }
     .stSelectbox div[role="option"] {
-        color: #f0f0f0;
+        color: #1F2937;
     }
     .stSelectbox div[role="option"]:hover {
-        background-color: #FFD700;
-        color: #2c313d; /* Dark text on hover */
+        background-color: #BFDBFE; /* 강조색보다 연한 파랑 */
+        color: #2563EB; /* 강조색 */
     }
 
     /* Metric 카드 */
     [data-testid="stMetric"] {
-        background-color: #3f4451; /* Darker background for metrics */
-        border: 1px solid #FFD700; /* Gold border */
+        background-color: #FFFFFF; /* 흰색 배경 */
+        border: 1px solid #D1D5DB; /* 연한 회색 테두리 */
         border-radius: 10px;
         padding: 10px;
         margin-bottom: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
     [data-testid="stMetricLabel"] {
-        color: #e0e0e0; /* Light gray label */
+        color: #1F2937; /* 텍스트색 */
     }
     [data-testid="stMetricValue"] {
-        color: #f0f0f0; /* White value */
-        font-size: 2em; /* Make value larger */
+        color: #2563EB; /* 강조색 */
+        font-size: 2em;
         font-weight: bold;
     }
     [data-testid="stMetricDelta"] {
-        color: #FFD700; /* Delta in accent color */
+        color: #2563EB; /* 강조색 */
     }
 
     /* 경고/에러 메시지 */
     .stAlert {
-        background-color: #5c2020; /* Darker red for errors */
-        color: #ffebeb;
-        border-left: 5px solid #ff4d4d;
+        background-color: #DBEAFE; /* 연한 파랑 배경 */
+        color: #1E40AF; /* 진한 파랑 텍스트 */
+        border-left: 5px solid #2563EB; /* 강조색 하이라이트 */
         border-radius: 5px;
     }
     .stWarning {
-        background-color: #5c4520; /* Darker orange for warnings */
-        color: #fff8eb;
-        border-left: 5px solid #ffcc66;
+        background-color: #FEF3C7; /* 연한 노랑 배경 */
+        color: #92400E; /* 진한 노랑 텍스트 */
+        border-left: 5px solid #FBBF24; /* 노랑 하이라이트 */
         border-radius: 5px;
     }
     
-    /* 새로운 추천 목록 스타일 (각 영화가 하나의 리스트 아이템처럼 보이도록) */
+    /* 새로운 추천 목록 스타일 */
     .recommendation-list-item {
-        display: flex; /* 가로 배열을 위해 flexbox 사용 */
-        align-items: flex-start; /* 상단 정렬 */
-        background-color: #3f4451; /* 리스트 아이템 배경색 */
-        border-radius: 8px; /* 모서리 둥글게 */
-        padding: 15px; /* 내부 여백 */
-        margin-bottom: 12px; /* 각 아이템 간 간격 */
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 은은한 그림자 */
-        border-left: 5px solid #FFD700; /* 강조를 위한 좌측 골드 바 */
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* 부드러운 호버 효과 */
+        display: flex;
+        align-items: flex-start;
+        background-color: #FFFFFF; /* 흰색 배경 */
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border-left: 5px solid #2563EB; /* 강조색 하이라이트 */
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
 
     .recommendation-list-item:hover {
-        transform: translateY(-3px); /* 호버 시 약간 위로 */
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4); /* 그림자 진하게 */
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(37, 99, 235, 0.25); /* 강조색 그림자 */
     }
 
     .recommendation-list-item img {
-        width: 80px; /* 포스터 너비 */
-        height: 120px; /* 포스터 높이 (비율 유지) */
+        width: 80px;
+        height: 120px;
         object-fit: cover;
         border-radius: 5px;
-        margin-right: 15px; /* 포스터와 텍스트 사이 간격 */
-        flex-shrink: 0; /* 이미지 크기 고정 */
-        border: 1px solid #5a5f6e;
+        margin-right: 15px;
+        flex-shrink: 0;
+        border: 1px solid #D1D5DB; /* 연한 회색 테두리 */
     }
 
     .movie-info-container {
         display: flex;
         flex-direction: column;
-        text-align: left; /* 텍스트 좌측 정렬 */
-        flex-grow: 1; /* 남은 공간을 채우도록 */
+        text-align: left;
+        flex-grow: 1;
     }
 
     .movie-title-list {
-        font-size: 18px; /* 제목 크기 키움 */
-        color: #FFD700; /* 제목 색상 */
+        font-size: 18px;
+        color: #2563EB; /* 강조색 */
         font-weight: bold;
         margin-bottom: 5px;
         line-height: 1.3;
     }
 
     .movie-detail-list {
-        font-size: 14px; /* 상세 정보 텍스트 크기 */
-        color: #e0e0e0; /* 상세 정보 텍스트 색상 */
+        font-size: 14px;
+        color: #1F2937; /* 텍스트색 */
         margin-bottom: 3px;
         line-height: 1.3;
     }
     .movie-detail-list strong {
-        color: #f0f0f0; /* 레이블 강조 */
+        color: #1F2937; /* 텍스트색 */
     }
     /* 마지막 항목의 하단 마진 제거 */
     .movie-info-container .movie-detail-list:last-of-type {
@@ -237,38 +262,60 @@ st.markdown("""
 
     /* Matplotlib plot 배경을 Streamlit 앱 배경과 동일하게 설정 */
     .stPlotlyChart {
-        background-color: #2c313d; /* Match app background */
+        background-color: #FFFFFF; /* 흰색 배경 */
         border-radius: 10px;
         padding: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
 
     /* 영화 상세 정보 창 조절 */
     .movie-detail-box {
-        background-color: #3f4451;
+        background-color: #FFFFFF; /* 흰색 배경 */
         border-radius: 10px;
         padding: 20px;
-        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-        height: 100%; /* Ensure it fills column height if content is short */
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        height: 100%;
         display: flex;
         flex-direction: column;
-        justify-content: center; /* Vertically center content if space allows */
+        justify-content: center;
     }
     .movie-detail-item {
-        margin-bottom: 8px; /* Spacing between detail items */
-        font-size: 28px !important; /* Increased size and added !important */
-        font-weight: bold !important; /* Made bolder and added !important */
-        line-height: 1.4; /* 줄 간격 조절 */
+        margin-bottom: 8px;
+        font-size: 22px !important;
+        font-weight: bold !important;
+        line-height: 1.4;
+        color: #1F2937; /* 텍스트색 */
+    }
+    .movie-detail-item strong {
+        color: #2563EB; /* 강조색 */
+    }
+
+    /* Streamlit header (h1) 위에 추가된 여백 제거 */
+    h1 {
+        padding-top: 0rem;
+    }
+
+    /* Streamlit 제목 영역 전체를 아우르는 스타일 */
+    .stDeck {
+        background-color: #F5F7FA; /* 배경색 */
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #D1D5DB; /* 연한 회색 라인 */
     }
 </style>
 """, unsafe_allow_html=True)
 
 
-st.title("🎬 영화 예측 시스템: 당신의 다음 영화를 발견하세요!")
-st.markdown("""
-    <p style="font-size:20px; text-align: center;">
-    "영화는 우리에게 꿈을 꾸게 합니다." 🌟 
-    <br>원하는 영화를 탐색하고, 새로운 추천을 받으며, 흥행 성과를 예측해보세요.
-    </p>
+# 맨 위 타이틀 및 설명 부분
+st.markdown(f"""
+    <div class="stDeck">
+        <h1 style="text-align: center; color: #1F2937;">🎬 영화 예측 시스템:
+        <br>당신의 다음 영화를 발견하세요!</h1>
+        <p style="font-size:20px; text-align: center; color: #1F2937;">
+        "영화는 우리에게 꿈을 꾸게 합니다." 🌟 
+        <br>원하는 영화를 탐색하고, 새로운 추천을 받으며, 흥행 성과를 예측해보세요.
+        </p>
+    </div>
     """, unsafe_allow_html=True)
 st.markdown("---")
 
@@ -332,10 +379,12 @@ def get_movie_poster_url(movie_title):
                 return f"https://image.tmdb.org/t/p/w500{poster_path}"
     except requests.exceptions.RequestException as e:
         pass
-    return "https://placehold.co/300x450/cccccc/000000?text=No+Image"
+    # 현재 사이드바 배경 (연한 푸른빛)과 흰색 텍스트에 대비되도록 플레이스홀더 이미지 색상 조정
+    # 이 부분은 메인 콘텐츠 영역에 표시되므로, 기존 색상 팔레트와 어울리도록 유지합니다.
+    return "https://placehold.co/300x450/bfdbfe/2563eb?text=No+Image" # 배경색 #BFDBFE, 텍스트색 #2563EB
 
 # 데이터 로드
-DATA_FILE_PATH = "data/청불제거_최종_DB컬럼.csv"
+DATA_FILE_PATH = "data/청불제거_최종_DB컬럼.csv" # **파일 경로 수정**
 df = load_data(DATA_FILE_PATH)
 
 # 데이터가 비어있을 경우 Early Exit
@@ -390,32 +439,40 @@ def get_combined_recommendations(title, sim_matrix_tfidf, sim_matrix_kobert, top
 
 
 # --- 사이드바 추가 ---
-st.sidebar.header("🔍 영화 검색 및 필터")
+st.sidebar.header("🔍 영화 검색 및 필터") # 이 텍스트가 흰색이 됨
 st.sidebar.markdown("---")
 
 # 감독 필터
 all_directors = ['전체 감독'] + sorted(df['감독'].unique().tolist())
-selected_director = st.sidebar.selectbox("감독:", all_directors)
+# 사이드바 내에서 컬럼을 사용하여 너비 제어
+col_dir = st.sidebar.columns(1)[0] # 1개의 컬럼 생성 후 첫 번째 컬럼 선택 (너비 조절용)
+selected_director = col_dir.selectbox("감독:", all_directors, key="sidebar_director_select")
 
 # 장르 필터
 all_genres = ['전체 장르'] + sorted(df['장르'].unique().tolist())
-selected_genre = st.sidebar.selectbox("장르:", all_genres)
+# 사이드바 내에서 컬럼을 사용하여 너비 제어
+col_genre = st.sidebar.columns(1)[0] # 1개의 컬럼 생성 후 첫 번째 컬럼 선택 (너비 조절용)
+selected_genre = col_genre.selectbox("장르:", all_genres, key="sidebar_genre_select")
 
 # 개봉일 범위 검색
 st.sidebar.markdown("---")
-st.sidebar.subheader("📅 개봉일 범위")
+st.sidebar.subheader("📅 개봉일 범위") # 이 텍스트가 흰색이 됨
 
 min_date_for_display = df['개봉일'].min().date() if not df.empty else datetime.date(2000, 1, 1)
 max_date_for_display = df['개봉일'].max().date() if not df.empty else datetime.date.today()
 
-start_date = st.sidebar.date_input(
+# 개봉일 입력 위젯들도 컬럼 안에 넣어 너비 조절
+col_start_date = st.sidebar.columns(1)[0]
+start_date = col_start_date.date_input(
     "시작일:", 
     value=min_date_for_display, 
     min_value=min_date_for_display, 
     max_value=max_date_for_display, 
     key="sidebar_start_date"
 )
-end_date = st.sidebar.date_input(
+
+col_end_date = st.sidebar.columns(1)[0]
+end_date = col_end_date.date_input(
     "종료일:", 
     value=max_date_for_display, 
     min_value=min_date_for_display, 
@@ -462,7 +519,7 @@ else:
         selected_movie = st.session_state.selected_movie
 
 
-st.markdown("<strong><p style='font-size:22px;'>🔍 추천의 기준이 될 영화를 선택해주세요:</p></strong>", unsafe_allow_html=True)
+st.markdown(f"<strong style='color:#1F2937 ;'><p style='font-size:22px;'>🔍 추천의 기준이 될 영화를 선택해주세요:</p></strong>", unsafe_allow_html=True) # 이 부분만 흰색으로 변경
 selected_movie = st.selectbox("", movie_list, key="main_movie_selector", label_visibility="collapsed") 
 st.session_state.selected_movie = selected_movie
 
@@ -512,13 +569,13 @@ if selected_movie != '영화를 선택하세요...':
         col_kobert, col_tfidf = st.columns(2)
 
         with col_kobert:
-            kobert_button_label = '장르 (KoBERT)' # 버튼 레이블
+            kobert_button_label = '장르 (KoBERT)'
             if st.button(kobert_button_label, key="btn_kobert"):
                 st.session_state.recommendation_mode = kobert_button_label
                 st.rerun() # 버튼 클릭 시 상태 업데이트를 위해 rerun
 
         with col_tfidf:
-            tfidf_button_label = '감독 (TF-IDF)' # 버튼 레이블
+            tfidf_button_label = '키워드 중심 (TF-IDF)'
             if st.button(tfidf_button_label, key="btn_tfidf"):
                 st.session_state.recommendation_mode = tfidf_button_label
                 st.rerun() # 버튼 클릭 시 상태 업데이트를 위해 rerun
@@ -526,12 +583,12 @@ if selected_movie != '영화를 선택하세요...':
         # Python에서 Streamlit 버튼에 CSS 클래스 적용하는 부분
         # Streamlit은 버튼에 직접 class 속성을 추가하는 기능을 제공하지 않으므로,
         # JavaScript를 사용하여 렌더링 후 DOM을 조작해야 합니다.
-        # 이 스크립트는 버튼의 data-testid와 key 속성을 이용하여 특정 버튼을 찾습니다.
+        # 이 스크립트는 버튼의 data-testid와 key 속성을 이용하여 해당 버튼을 찾습니다.
         st.markdown(f"""
             <script>
                 var kobertButton = document.querySelector('[data-testid="stButton"] button[key="btn_kobert"]');
                 if (kobertButton) {{
-                    if ("{st.session_state.recommendation_mode}" === "장르 (KoBERT)") {{ /* 여기가 수정됨 */
+                    if ("{st.session_state.recommendation_mode}" === "장르 (KoBERT)") {{
                         kobertButton.classList.add('selected-button');
                         kobertButton.classList.remove('unselected-button');
                     }} else {{
@@ -542,7 +599,7 @@ if selected_movie != '영화를 선택하세요...':
 
                 var tfidfButton = document.querySelector('[data-testid="stButton"] button[key="btn_tfidf"]');
                 if (tfidfButton) {{
-                    if ("{st.session_state.recommendation_mode}" === "감독 (TF-IDF)") {{ /* 여기가 수정됨 */
+                    if ("{st.session_state.recommendation_mode}" === "키워드 중심 (TF-IDF)") {{
                         tfidfButton.classList.add('selected-button');
                         tfidfButton.classList.remove('unselected-button');
                     }} else {{
@@ -556,16 +613,14 @@ if selected_movie != '영화를 선택하세요...':
         # --- 여기까지 변경 ---
 
         weight_tfidf = 0.5 
-        # === 여기가 수정됨 ===
-        if st.session_state.recommendation_mode == '장르 (KoBERT)':
-            weight_tfidf = 0.0 
-        elif st.session_state.recommendation_mode == '감독 (TF-IDF)':
-            weight_tfidf = 1.0 
-        # ====================
+        if st.session_state.recommendation_mode == '장르 (KoBERT)': # KoBERT가 기본이므로 KoBERT 쪽에 더 비중
+            weight_tfidf = 0.2
+        elif st.session_state.recommendation_mode == '키워드 중심 (TF-IDF)':
+            weight_tfidf = 0.8 # TF-IDF 선택 시 TF-IDF 쪽에 더 비중
         
         weight_kobert = 1.0 - weight_tfidf 
         
-        st.markdown("<p style='font-size:20px;'><b>👍 당신을 위한 추천 영화들:</b></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size:20px; color:#2563EB;'><b>👍 당신을 위한 추천 영화들:</b></p>", unsafe_allow_html=True) # 텍스트 색상 변경
         rec_combined = get_combined_recommendations(
             selected_movie, 
             cosine_sim_tfidf, 
@@ -613,9 +668,9 @@ with st.spinner("⏳ 관객수 예측 모델을 학습하는 중입니다..."):
         st.error(f"XGBoost 모델 학습에 필요한 다음 컬럼이 없습니다: {', '.join(missing_cols)}. 데이터 파일을 확인해주세요.")
         fig, ax = plt.subplots(figsize=(10, 6))
         # Ensure plot background matches app background for seamless integration
-        fig.patch.set_facecolor('#2c313d') 
-        ax.set_facecolor('#2c313d')
-        ax.text(0.5, 0.5, "필수 데이터 컬럼 누락", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=16, color='#FFD700')
+        fig.patch.set_facecolor('#F5F7FA') # 배경색
+        ax.set_facecolor('#F5F7FA') # 배경색
+        ax.text(0.5, 0.5, "필수 데이터 컬럼 누락", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=16, color='#2563EB') # 강조색
         ax.axis('off')
         st.pyplot(fig)
         st.stop() 
@@ -634,13 +689,12 @@ with st.spinner("⏳ 관객수 예측 모델을 학습하는 중입니다..."):
         st.warning("XGBoost 모델 학습을 위한 데이터가 충분하지 않습니다. 파일 내용과 전처리 결과를 확인해주세요.")
         mse, rmse, r2 = 0, 0, 0
         fig, ax = plt.subplots(figsize=(10, 6))
-        fig.patch.set_facecolor('#2c313d') 
-        ax.set_facecolor('#2c313d')
-        ax.text(0.5, 0.5, "데이터 부족으로 예측 불가", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=16, color='#FFD700')
+        fig.patch.set_facecolor('#F5F7FA') # 배경색
+        ax.set_facecolor('#F5F7FA') # 배경색
+        ax.text(0.5, 0.5, "데이터 부족으로 예측 불가", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=16, color='#2563EB') # 강조색
         ax.axis('off')
     else:
         try:
-            # Changed from train_test_split to train_train_split to avoid name collision if not imported directly in user's original file
             from sklearn.model_selection import train_test_split as train_train_split 
             X_train_xgb, X_test_xgb, y_train_xgb, y_test_xgb = train_train_split(
                 X_xgb, y_xgb, test_size=0.2, random_state=42
@@ -687,99 +741,94 @@ with st.spinner("⏳ 관객수 예측 모델을 학습하는 중입니다..."):
 
             st.subheader("📉 실제 vs 예측 관객수 시각화 (XGBoost 모델)")
             fig, ax = plt.subplots(figsize=(10, 6))
-            sns.scatterplot(x=y_test_xgb, y=y_pred_xgb, alpha=0.6, ax=ax, color='#66b2ff') # Lighter blue scatter
+            sns.scatterplot(x=y_test_xgb, y=y_pred_xgb, alpha=0.6, ax=ax, color='#2563EB') # 강조색
             ax.plot([y_test_xgb.min(), y_test_xgb.max()], [y_test_xgb.min(), y_test_xgb.max()], 'r--', lw=2, label='이상적인 예측')
-            ax.set_xlabel("실제 누적 관객수", color='#f0f0f0')
-            ax.set_ylabel("예측 누적 관객수", color='#f0f0f0')
-            ax.set_title("XGBoost 회귀: 실제 vs 예측", color='#FFD700')
-            ax.legend(labelcolor='#f0f0f0')
-            ax.grid(True, color='#5a5f6e', linestyle=':', alpha=0.7) # Lighter grid lines
+            ax.set_xlabel("실제 누적 관객수", color='#1F2937') # 텍스트색
+            ax.set_ylabel("예측 누적 관객수", color='#1F2937') # 텍스트색
+            ax.set_title("XGBoost 회귀: 실제 vs 예측", color='#2563EB') # 강조색
+            ax.legend(labelcolor='#1F2937') # 텍스트색
+            ax.grid(True, color='#D1D5DB', linestyle=':', alpha=0.7) # 연한 회색 그리드
             
             # Set tick and spine colors for the plot
-            ax.tick_params(axis='x', colors='#f0f0f0')
-            ax.tick_params(axis='y', colors='#f0f0f0')
-            ax.spines['left'].set_color('#f0f0f0')
-            ax.spines['bottom'].set_color('#f0f0f0')
-            ax.spines['right'].set_color('#f0f0f0')
-            ax.spines['top'].set_color('#f0f0f0')
+            ax.tick_params(axis='x', colors='#1F2937') # 틱 색상
+            ax.tick_params(axis='y', colors='#1F2937') # 틱 색상
+            ax.spines['left'].set_color('#D1D5DB') # 스파인 색상
+            ax.spines['bottom'].set_color('#D1D5DB') # 스파인 색상
+            ax.spines['right'].set_color('#D1D5DB')
+            ax.spines['top'].set_color('#D1D5DB')
             
             # Set plot background to match app background
-            fig.patch.set_facecolor('#2c313d')
-            ax.set_facecolor('#2c313d')
-
+            fig.patch.set_facecolor('#F5F7FA') # 배경색
+            ax.set_facecolor('#FFFFFF') # 그래프 내부 배경 흰색
             ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
             ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
             plt.xticks(rotation=45)
         except Exception as e: 
             st.error(f"XGBoost 모델 학습 또는 예측 중 오류 발생: {e}. 데이터셋 크기 또는 특성을 확인해주세요.")
             fig, ax = plt.subplots(figsize=(10, 6))
-            fig.patch.set_facecolor('#2c313d') 
-            ax.set_facecolor('#2c313d')
-            ax.text(0.5, 0.5, "모델 학습 중 오류 발생", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=16, color='#FFD700')
+            fig.patch.set_facecolor('#F5F7FA') # 배경색
+            ax.set_facecolor('#F5F7FA') # 배경색
+            ax.text(0.5, 0.5, "모델 학습 중 오류 발생", horizontalalignment='center', verticalalignment='center', transform=ax.transAxes, fontsize=16, color='#2563EB') # 강조색
             ax.axis('off')
     st.pyplot(fig)
 
-# --- 6. 'merged_test.csv' 파일의 예측 결과 시각화 추가 ---
+# --- 6. 'test_predictions.csv' 파일의 예측 결과 시각화 추가 (CatBoost) ---
 st.markdown("\n\n---\n\n")
-st.header("📊 CatBoost 예측 결과 시각화") # "모델 성능 지표"에서 변경
-st.write("별도로 예측된 'merged_test.csv' 파일의 CatBoost 모델 예측 결과를 시각화합니다.")
+st.header("📊 CatBoost 예측 결과 시각화") 
+st.write("별도로 예측된 'test_predictions.csv' 파일의 CatBoost 모델 예측 결과를 시각화합니다.")
 
-MERGED_TEST_FILE_PATH = "data/merged_test.csv"
+MERGED_TEST_FILE_PATH = "data/test_predictions.csv" # **파일 경로 수정**
 
 @st.cache_data(show_spinner="⏳ CatBoost 예측 결과 데이터를 불러오는 중입니다...")
-def load_and_preprocess_merged_test_data(file_path):
+def load_and_preprocess_predictions_data(file_path): # 함수명 변경
     if not os.path.exists(file_path):
         st.error(f"오류: 데이터 파일 '{file_path}'을(를) 찾을 수 없습니다.")
         return pd.DataFrame() 
 
-    merged_df = pd.read_csv(file_path)
+    predictions_df = pd.read_csv(file_path) # 변수명 변경
     
-    for col in ['누적관객수', '예측_누적관객수']:
-        if col not in merged_df.columns:
-            st.error(f"'{col}' 컬럼이 '{file_path}' 파일에 없습니다.")
-            return pd.DataFrame()
-        merged_df[col] = pd.to_numeric(merged_df[col], errors='coerce').fillna(0)
+    # '누적관객수' 컬럼이 없으므로 '예측_누적관객수'만 확인
+    if '예측_누적관객수' not in predictions_df.columns:
+        st.error(f"'예측_누적관객수' 컬럼이 '{file_path}' 파일에 없습니다.")
+        return pd.DataFrame()
+    predictions_df['예측_누적관객수'] = pd.to_numeric(predictions_df['예측_누적관객수'], errors='coerce').fillna(0)
     
-    return merged_df
+    return predictions_df
 
-merged_test_df = load_and_preprocess_merged_test_data(MERGED_TEST_FILE_PATH)
+predictions_df = load_and_preprocess_predictions_data(MERGED_TEST_FILE_PATH) # 함수 호출 및 변수명 변경
 
-if not merged_test_df.empty:
-    y_actual_merged = merged_test_df['누적관객수']
-    y_predicted_merged = merged_test_df['예측_누적관객수']
+if not predictions_df.empty:
+    # '누적관객수' 컬럼이 없으므로 예측값 히스토그램으로 변경
+    y_predicted_catboost = predictions_df['예측_누적관객수']
+    y_predicted_catboost[y_predicted_catboost < 0] = 0
 
-    y_predicted_merged[y_predicted_merged < 0] = 0
-
-    st.subheader("📉 실제 누적관객수 vs 예측 누적관객수 (CatBoost 모델)")
-    fig_merged, ax_merged = plt.subplots(figsize=(10, 6))
-    sns.scatterplot(x=y_actual_merged, y=y_predicted_merged, alpha=0.6, ax=ax_merged, color='#85e085') 
+    st.subheader("📊 CatBoost 예측 누적관객수 분포")
+    fig_catboost, ax_catboost = plt.subplots(figsize=(10, 6))
     
-    min_val = min(y_actual_merged.min(), y_predicted_merged.min())
-    max_val = max(y_actual_merged.max(), y_predicted_merged.max())
+    # 히스토그램으로 변경
+    sns.histplot(y_predicted_catboost, bins=50, kde=True, ax=ax_catboost, color='#2563EB') # 강조색
     
-    ax_merged.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='이상적인 예측')
-    ax_merged.set_xlabel("실제 누적 관객수", color='#f0f0f0')
-    ax_merged.set_ylabel("예측 누적 관객수", color='#f0f0f0')
-    ax_merged.set_title("CatBoost 회귀: 실제 vs 예측", color='#FFD700')
-    ax_merged.legend(labelcolor='#f0f0f0')
-    ax_merged.grid(True, color='#5a5f6e', linestyle=':', alpha=0.7) 
+    ax_catboost.set_xlabel("예측 누적 관객수", color='#1F2937')
+    ax_catboost.set_ylabel("빈도", color='#1F2937')
+    ax_catboost.set_title("CatBoost 예측 누적 관객수 분포", color='#2563EB') # 강조색
+    ax_catboost.grid(True, color='#D1D5DB', linestyle=':', alpha=0.7) # 연한 회색 그리드
     
     # Set tick and spine colors for the plot
-    ax_merged.tick_params(axis='x', colors='#f0f0f0')
-    ax_merged.tick_params(axis='y', colors='#f0f0f0')
-    ax_merged.spines['left'].set_color('#f0f0f0')
-    ax_merged.spines['bottom'].set_color('#f0f0f0')
-    ax_merged.spines['right'].set_color('#f0f0f0')
-    ax_merged.spines['top'].set_color('#f0f0f0')
+    ax_catboost.tick_params(axis='x', colors='#1F2937')
+    ax_catboost.tick_params(axis='y', colors='#1F2937')
+    ax_catboost.spines['left'].set_color('#D1D5DB')
+    ax_catboost.spines['bottom'].set_color('#D1D5DB')
+    ax_catboost.spines['right'].set_color('#D1D5DB')
+    ax_catboost.spines['top'].set_color('#D1D5DB')
 
     # Set plot background to match app background
-    fig_merged.patch.set_facecolor('#2c313d')
-    ax_merged.set_facecolor('#2c313d')
+    fig_catboost.patch.set_facecolor('#F5F7FA') # 배경색
+    ax_catboost.set_facecolor('#FFFFFF') # 그래프 내부 배경 흰색
 
-    ax_merged.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
-    ax_merged.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
+    ax_catboost.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
+    ax_catboost.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
     plt.xticks(rotation=45)
     
-    st.pyplot(fig_merged)
+    st.pyplot(fig_catboost)
 else:
-    st.warning("예측 결과 시각화를 위한 'merged_test.csv' 데이터를 불러오거나 처리할 수 없습니다.")
+    st.warning("예측 결과 시각화를 위한 'data/test_predictions.csv' 데이터를 불러오거나 처리할 수 없습니다. 파일에 '예측_누적관객수' 컬럼이 있는지 확인해주세요.")
